@@ -1,13 +1,15 @@
 {
-  "name": "incidentes-ciberseguridad",
+  "name": "centinela",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "preview": "vite preview",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "typecheck": "tsc -b --noEmit",
+    "verify": "node scripts/verify-ui.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -23,7 +25,9 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
+    "playwright": "^1.62.1",
     "typescript": "~6.0.2",
     "vite": "^8.2.2"
-  }
+  },
+  "description": "Dashboard de monitoreo de incidentes de ciberseguridad"
 }
