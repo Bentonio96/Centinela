@@ -2,8 +2,9 @@
  * Dataset mock de incidentes.
  *
  * Se genera una sola vez al importar el módulo, con semilla fija, y cubre los
- * últimos 60 días. El dashboard muestra 30, pero los 30 anteriores hacen falta
- * para calcular las variaciones contra el período previo sin inventarlas.
+ * últimos 60 días. El dashboard muestra 30 (`TREND_DAYS` en `lib/metrics.ts`),
+ * pero los 30 anteriores hacen falta para calcular las variaciones contra el
+ * período previo sin inventarlas.
  *
  * Las fechas son relativas al día de ejecución: el dashboard siempre se ve
  * "vivo" sin depender de un backend.
@@ -16,11 +17,8 @@ import { ANALYSTS, ASSET_NAMES, CATEGORY_TEMPLATES, type CategoryTemplate } from
 /** Semilla del dataset. Cambiarla genera un escenario distinto pero igual de estable. */
 const SEED = 20_260_318;
 
-/** Días de historia generados. La UI muestra los últimos `VISIBLE_DAYS`. */
+/** Días de historia generados. La UI muestra sólo la mitad más reciente. */
 const HISTORY_DAYS = 60;
-
-/** Ventana del gráfico de tendencia y de las métricas. */
-export const VISIBLE_DAYS = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -44,15 +42,20 @@ const RESOLUTION_HOURS: Readonly<Record<Severity, readonly [number, number]>> = 
   low: [24, 210],
 };
 
-/** Probabilidad de que un incidente siga sin resolverse, según su antigüedad. */
-function openProbability(ageInDays: number): number {
-  if (ageInDays <= 1) return 0.82;
-  if (ageInDays <= 3) return 0.55;
-  if (ageInDays <= 7) return 0.3;
-  if (ageInDays <= 14) return 0.14;
-  if (ageInDays <= 30) return 0.06;
-  return 0.02;
-}
+/**
+ * Proporción de incidentes que quedan estancados y no se cierran nunca:
+ * el caso escalado a un tercero, el que espera una ventana de mantenimiento,
+ * el que nadie retomó.
+ *
+ * Es una probabilidad fija y no una función de la antigüedad a propósito. Si
+ * dependiera de cuán viejo es un incidente *respecto de hoy*, el stock de
+ * abiertos parecería crecer siempre: los recientes tendrían mucha probabilidad
+ * de seguir abiertos y los de hace una semana ya se habrían resuelto todos.
+ * Las variaciones contra el período anterior saldrían infladas por
+ * construcción. Con una tasa fija el modelo es estacionario y los cambios
+ * semanales reflejan sólo el flujo real de entradas y cierres.
+ */
+const STALLED_RATE = 0.07;
 
 /**
  * Cuántos incidentes se detectan un día dado.
@@ -61,7 +64,7 @@ function openProbability(ageInDays: number): number {
  */
 function incidentsForDay(rng: Rng, daysAgo: number, weekday: number): number {
   const isWeekend = weekday === 0 || weekday === 6;
-  const base = isWeekend ? randomInt(rng, 0, 2) : randomInt(rng, 2, 5);
+  const base = isWeekend ? randomInt(rng, 1, 3) : randomInt(rng, 3, 6);
   // Dos oleadas: una campaña de phishing reciente y un evento más antiguo.
   const surge = daysAgo === 4 || daysAgo === 5 ? randomInt(rng, 3, 6) : 0;
   const olderSurge = daysAgo === 19 ? randomInt(rng, 2, 4) : 0;
@@ -184,12 +187,14 @@ function generateIncidents(): Incident[] {
         detectedAt.setTime(now.getTime() - randomInt(rng, 5, 200) * 60_000);
       }
 
-      const stillOpen = chance(rng, openProbability(daysAgo));
+      // A cada incidente se le asigna su tiempo de resolución al detectarlo; que
+      // hoy siga abierto es consecuencia de que ese plazo aún no se ha cumplido.
+      const isStalled = chance(rng, STALLED_RATE);
       const [minHours, maxHours] = RESOLUTION_HOURS[severity];
       const resolutionMs = randomInt(rng, minHours * 60, maxHours * 60) * 60_000;
       const candidateResolvedAt = new Date(detectedAt.getTime() + resolutionMs);
       // Un incidente no puede cerrarse en el futuro.
-      const isResolved = !stillOpen && candidateResolvedAt <= now;
+      const isResolved = !isStalled && candidateResolvedAt <= now;
       const resolvedAt = isResolved ? candidateResolvedAt : null;
       const status = resolveStatus(rng, isResolved);
 
@@ -234,3 +239,13 @@ function generateIncidents(): Incident[] {
 }
 
 export const INCIDENTS: readonly Incident[] = generateIncidents();
+
+/**
+ * Instante en que se generó el dataset.
+ *
+ * Todo el tablero calcula contra esta referencia en lugar de llamar a
+ * `Date.now()` durante el render: así las métricas, ambos gráficos y las
+ * fechas relativas de la tabla describen el mismo momento y no pueden
+ * discrepar entre sí.
+ */
+export const GENERATED_AT: number = Date.now();

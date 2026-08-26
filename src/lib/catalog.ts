@@ -17,8 +17,15 @@ export interface SeverityMeta {
   readonly value: Severity;
   /** Etiqueta completa: "Crítica". */
   readonly label: string;
-  /** Posición en la escala; 0 es lo más grave. Define el orden de la tabla. */
-  readonly rank: number;
+  /**
+   * Peso ordinal de la severidad: a mayor número, más grave.
+   *
+   * Va en este sentido y no al revés para que ordenar la columna de forma
+   * descendente ponga las críticas arriba, que es lo que alguien espera al
+   * pedir "de mayor a menor severidad" — y lo que entonces anuncia
+   * correctamente el `aria-sort` del encabezado.
+   */
+  readonly weight: number;
   /** Clases del badge: borde, fondo y texto en un solo string literal. */
   readonly badgeClassName: string;
   /** Color del indicador redundante al color de fondo. */
@@ -30,7 +37,7 @@ export const SEVERITY_META: Readonly<Record<Severity, SeverityMeta>> = {
   critical: {
     value: 'critical',
     label: 'Crítica',
-    rank: 0,
+    weight: 3,
     badgeClassName:
       'border-severity-critical-border bg-severity-critical-bg text-severity-critical',
     dotClassName: 'bg-severity-critical',
@@ -39,7 +46,7 @@ export const SEVERITY_META: Readonly<Record<Severity, SeverityMeta>> = {
   high: {
     value: 'high',
     label: 'Alta',
-    rank: 1,
+    weight: 2,
     badgeClassName: 'border-severity-high-border bg-severity-high-bg text-severity-high',
     dotClassName: 'bg-severity-high',
     chartColor: 'var(--severity-high)',
@@ -47,7 +54,7 @@ export const SEVERITY_META: Readonly<Record<Severity, SeverityMeta>> = {
   medium: {
     value: 'medium',
     label: 'Media',
-    rank: 2,
+    weight: 1,
     badgeClassName: 'border-severity-medium-border bg-severity-medium-bg text-severity-medium',
     dotClassName: 'bg-severity-medium',
     chartColor: 'var(--severity-medium)',
@@ -55,7 +62,7 @@ export const SEVERITY_META: Readonly<Record<Severity, SeverityMeta>> = {
   low: {
     value: 'low',
     label: 'Baja',
-    rank: 3,
+    weight: 0,
     badgeClassName: 'border-severity-low-border bg-severity-low-bg text-severity-low',
     dotClassName: 'bg-severity-low',
     chartColor: 'var(--severity-low)',

@@ -12,6 +12,7 @@ export type {
   CategoryDatum,
   DashboardMetrics,
   IncidentFilters,
+  MetricDelta,
   SortableColumn,
   SortDirection,
   SortState,

@@ -26,6 +26,21 @@ export interface IncidentFilters {
   readonly severities: readonly Severity[];
 }
 
+/**
+ * Variación de una métrica contra su período de referencia.
+ *
+ * Lleva las dos formas porque ninguna sirve sola: el porcentaje es lo legible
+ * cuando hay volumen, pero con una base de cero no existe, y con dos o tres
+ * casos amplifica el ruido hasta lo absurdo. La diferencia absoluta cubre
+ * justamente esos casos.
+ */
+export interface MetricDelta {
+  /** Variación porcentual, o `null` si el período anterior fue cero. */
+  readonly percent: number | null;
+  /** Diferencia sin escalar. En el tiempo de resolución son horas. */
+  readonly absolute: number;
+}
+
 /** Las cuatro métricas de la fila superior. */
 export interface DashboardMetrics {
   readonly openIncidents: number;
@@ -33,15 +48,12 @@ export interface DashboardMetrics {
   /** Tiempo medio de resolución en horas, sobre incidentes ya resueltos. */
   readonly meanTimeToResolveHours: number;
   readonly resolvedThisWeek: number;
-  /**
-   * Variación porcentual contra el período anterior equivalente.
-   * `null` cuando no hay base de comparación (período anterior sin datos).
-   */
+  /** Variación de cada métrica contra su período anterior equivalente. */
   readonly deltas: {
-    readonly openIncidents: number | null;
-    readonly criticalIncidents: number | null;
-    readonly meanTimeToResolveHours: number | null;
-    readonly resolvedThisWeek: number | null;
+    readonly openIncidents: MetricDelta;
+    readonly criticalIncidents: MetricDelta;
+    readonly meanTimeToResolveHours: MetricDelta;
+    readonly resolvedThisWeek: MetricDelta;
   };
 }
 
@@ -58,8 +70,10 @@ export interface TrendPoint {
 /** Una barra del gráfico de categorías. */
 export interface CategoryDatum {
   readonly category: IncidentCategory;
-  /** Etiqueta en español lista para el eje. */
+  /** Etiqueta completa, para el tooltip: "Denegación de servicio". */
   readonly label: string;
+  /** Versión corta para el eje, donde el espacio manda: "DDoS". */
+  readonly shortLabel: string;
   readonly total: number;
   readonly critical: number;
 }
