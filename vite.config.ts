@@ -12,4 +12,21 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Separar las dependencias de la aplicación permite que el navegador
+        // conserve esos chunks entre despliegues y los descargue en paralelo.
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return undefined
+          // React cambia de versión con mucha menos frecuencia que el resto:
+          // en su propio chunk sobrevive en caché a la mayoría de los deploys.
+          // Vite normaliza los ids a barras normales, también en Windows.
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react'
+          // Recharts y sus dependencias pesan más que toda la aplicación junta.
+          return 'vendor'
+        },
+      },
+    },
+  },
 })
