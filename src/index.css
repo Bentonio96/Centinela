@@ -173,6 +173,22 @@
   /* Sombras contenidas: sólo las capas flotantes se despegan del fondo. */
   --shadow-panel: -12px 0 32px -12px oklch(0 0 0 / 0.45);
   --shadow-popover: 0 4px 16px -4px oklch(0 0 0 / 0.35);
+
+  /* Entrada del panel lateral. Corta y sin rebote: es una herramienta, no una
+     presentación. Se aplica bajo `motion-safe`, así que quien pida menos
+     movimiento no la ve. */
+  --animate-panel-in: panel-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes panel-in {
+    from {
+      transform: translateX(1.25rem);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
 }
 
 @layer base {
