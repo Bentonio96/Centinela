@@ -7,7 +7,7 @@
     <meta name="color-scheme" content="dark light" />
     <meta
       name="description"
-      content="Dashboard de monitoreo de incidentes de ciberseguridad: metricas, tendencia diaria, distribucion por categoria y triaje de incidentes."
+      content="Dashboard de monitoreo de incidentes de ciberseguridad: métricas, tendencia diaria, distribución por categoría y triaje de incidentes."
     />
     <title>Centinela — Monitoreo de incidentes</title>
 
@@ -19,6 +19,20 @@
     />
   </head>
   <body>
+    <!--
+      Aplica el tema guardado antes del primer pintado. El tema oscuro ya es el
+      valor por defecto del CSS, así que esto sólo corrige el caso del usuario
+      que eligió el claro; sin esto vería un destello oscuro en cada carga.
+    -->
+    <script>
+      try {
+        if (localStorage.getItem('centinela:theme') === 'light') {
+          document.documentElement.classList.add('light');
+        }
+      } catch (error) {
+        /* localStorage bloqueado: se mantiene el tema oscuro por defecto. */
+      }
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
