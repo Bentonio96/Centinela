@@ -1,0 +1,212 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Estrategia de tema
+   ---------------------------------------------------------------------------
+   El producto es oscuro por defecto, así que los tokens oscuros viven en
+   `:root` y el tema claro es un override mediante la clase `.light` en <html>.
+   Esto evita el destello blanco inicial sin necesidad de un script bloqueante:
+   sin JavaScript la app ya se ve como debe verse.
+
+   `light:` queda disponible como variante para los pocos casos que no se
+   resuelven con tokens.
+--------------------------------------------------------------------------- */
+@custom-variant light (&:where(.light, .light *));
+
+:root {
+  color-scheme: dark;
+
+  /* Superficies, de la más profunda a la más elevada */
+  --surface-sunken: oklch(0.15 0.011 264);
+  --surface-base: oklch(0.185 0.012 264);
+  --surface-raised: oklch(0.222 0.013 264);
+  --surface-overlay: oklch(0.252 0.014 264);
+  --surface-hover: oklch(0.275 0.015 264);
+
+  /* Bordes */
+  --border-subtle: oklch(0.3 0.014 264);
+  --border-strong: oklch(0.42 0.017 264);
+
+  /* Texto */
+  --text-primary: oklch(0.965 0.003 264);
+  --text-secondary: oklch(0.775 0.011 264);
+  --text-muted: oklch(0.615 0.014 264);
+
+  /* Acento: azul de instrumentación, usado en foco, selección y serie principal */
+  --accent: oklch(0.7 0.145 245);
+  --accent-hover: oklch(0.755 0.145 245);
+  --accent-soft: oklch(0.34 0.075 245);
+  --accent-contrast: oklch(0.16 0.01 264);
+
+  /* Severidad. Cada nivel tiene primer plano, fondo y borde propios para que
+     los badges mantengan contraste sobre cualquier superficie. */
+  --severity-critical: oklch(0.7 0.19 21);
+  --severity-critical-bg: oklch(0.31 0.088 21);
+  --severity-critical-border: oklch(0.44 0.13 21);
+
+  --severity-high: oklch(0.755 0.155 52);
+  --severity-high-bg: oklch(0.32 0.075 52);
+  --severity-high-border: oklch(0.45 0.11 52);
+
+  --severity-medium: oklch(0.83 0.13 90);
+  --severity-medium-bg: oklch(0.32 0.06 90);
+  --severity-medium-border: oklch(0.45 0.09 90);
+
+  --severity-low: oklch(0.755 0.075 225);
+  --severity-low-bg: oklch(0.3 0.04 225);
+  --severity-low-border: oklch(0.42 0.055 225);
+
+  /* Estado del ciclo de vida */
+  --status-open: oklch(0.755 0.155 52);
+  --status-investigating: oklch(0.75 0.13 275);
+  --status-contained: oklch(0.79 0.115 200);
+  --status-resolved: oklch(0.77 0.15 152);
+}
+
+.light {
+  color-scheme: light;
+
+  --surface-sunken: oklch(0.955 0.004 264);
+  --surface-base: oklch(0.985 0.002 264);
+  --surface-raised: oklch(1 0 0);
+  --surface-overlay: oklch(1 0 0);
+  --surface-hover: oklch(0.965 0.005 264);
+
+  --border-subtle: oklch(0.9 0.006 264);
+  --border-strong: oklch(0.8 0.01 264);
+
+  --text-primary: oklch(0.24 0.014 264);
+  --text-secondary: oklch(0.44 0.014 264);
+  --text-muted: oklch(0.58 0.013 264);
+
+  --accent: oklch(0.53 0.16 250);
+  --accent-hover: oklch(0.46 0.16 250);
+  --accent-soft: oklch(0.94 0.03 250);
+  --accent-contrast: oklch(0.99 0 0);
+
+  --severity-critical: oklch(0.5 0.19 24);
+  --severity-critical-bg: oklch(0.955 0.028 24);
+  --severity-critical-border: oklch(0.86 0.07 24);
+
+  --severity-high: oklch(0.52 0.14 48);
+  --severity-high-bg: oklch(0.96 0.03 62);
+  --severity-high-border: oklch(0.87 0.07 55);
+
+  --severity-medium: oklch(0.52 0.1 78);
+  --severity-medium-bg: oklch(0.965 0.035 90);
+  --severity-medium-border: oklch(0.87 0.07 85);
+
+  --severity-low: oklch(0.5 0.07 230);
+  --severity-low-bg: oklch(0.96 0.015 230);
+  --severity-low-border: oklch(0.88 0.03 230);
+
+  --status-open: oklch(0.52 0.14 48);
+  --status-investigating: oklch(0.5 0.15 278);
+  --status-contained: oklch(0.5 0.1 210);
+  --status-resolved: oklch(0.48 0.13 155);
+}
+
+/* ---------------------------------------------------------------------------
+   Design tokens expuestos a Tailwind
+   ---------------------------------------------------------------------------
+   `@theme inline` emite `var(--token)` en lugar de copiar el valor, que es lo
+   que permite que las mismas utilidades (`bg-surface-raised`,
+   `text-severity-critical`, …) cambien de tema sin duplicar clases.
+--------------------------------------------------------------------------- */
+@theme inline {
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-base: var(--surface-base);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+
+  --color-severity-critical: var(--severity-critical);
+  --color-severity-critical-bg: var(--severity-critical-bg);
+  --color-severity-critical-border: var(--severity-critical-border);
+  --color-severity-high: var(--severity-high);
+  --color-severity-high-bg: var(--severity-high-bg);
+  --color-severity-high-border: var(--severity-high-border);
+  --color-severity-medium: var(--severity-medium);
+  --color-severity-medium-bg: var(--severity-medium-bg);
+  --color-severity-medium-border: var(--severity-medium-border);
+  --color-severity-low: var(--severity-low);
+  --color-severity-low-bg: var(--severity-low-bg);
+  --color-severity-low-border: var(--severity-low-border);
+
+  --color-status-open: var(--status-open);
+  --color-status-investigating: var(--status-investigating);
+  --color-status-contained: var(--status-contained);
+  --color-status-resolved: var(--status-resolved);
+}
+
+@theme {
+  /* Tipografía. Inter con `tabular-nums` para que las métricas no bailen al
+     actualizarse; monoespaciada para IDs, IPs y marcas de tiempo. */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', 'Roboto Mono', monospace;
+
+  /* Escala de espaciado semántica sobre la base de 0.25rem de Tailwind.
+     Densidad de herramienta: las celdas son más bajas que el default. */
+  --spacing-gutter: 1.5rem;
+  --spacing-gutter-sm: 1rem;
+  --spacing-cell-x: 0.875rem;
+  --spacing-cell-y: 0.625rem;
+  --spacing-panel: 26rem;
+
+  /* Radios */
+  --radius-control: 0.375rem;
+  --radius-card: 0.5rem;
+  --radius-pill: 9999px;
+
+  /* Sombras contenidas: sólo las capas flotantes se despegan del fondo. */
+  --shadow-panel: -12px 0 32px -12px oklch(0 0 0 / 0.45);
+  --shadow-popover: 0 4px 16px -4px oklch(0 0 0 / 0.35);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--surface-base);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Foco visible y consistente en toda la app, separado de la superficie para
+     que se lea también sobre fondos claros. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-control);
+  }
+
+  /* Los números de métricas y de tabla se alinean en columna. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
