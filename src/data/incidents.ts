@@ -42,6 +42,14 @@ const RESOLUTION_HOURS: Readonly<Record<Severity, readonly [number, number]>> = 
   low: [24, 210],
 };
 
+/** Etiquetas de severidad usadas dentro del texto de la bitácora generada. */
+const SEVERITY_LABEL: Readonly<Record<Severity, string>> = {
+  critical: 'Crítica',
+  high: 'Alta',
+  medium: 'Media',
+  low: 'Baja',
+};
+
 /**
  * Proporción de incidentes que quedan estancados y no se cierran nunca:
  * el caso escalado a un tercero, el que espera una ventana de mantenimiento,
@@ -165,6 +173,59 @@ function fillTemplate(text: string, assetName: string, ip: string | null): strin
   return text.replaceAll('{asset}', assetName).replaceAll('{ip}', ip ?? 'un origen no determinado');
 }
 
+/**
+ * Crea un incidente detectado en el instante dado.
+ *
+ * Está extraída del bucle de generación para que el modo en vivo produzca
+ * incidentes con exactamente las mismas reglas que el histórico: si divergieran,
+ * lo que entra en tiempo real dejaría de parecerse a lo que ya está en la tabla.
+ */
+export function createIncident(
+  rng: Rng,
+  detectedAt: Date,
+  now: Date,
+  sequence: number,
+): Incident {
+  const template = pick(rng, WEIGHTED_CATEGORIES);
+  const severity = pick(rng, template.severityPool);
+
+  // A cada incidente se le asigna su tiempo de resolución al detectarlo; que
+  // hoy siga abierto es consecuencia de que ese plazo aún no se ha cumplido.
+  const isStalled = chance(rng, STALLED_RATE);
+  const [minHours, maxHours] = RESOLUTION_HOURS[severity];
+  const resolutionMs = randomInt(rng, minHours * 60, maxHours * 60) * 60_000;
+  const candidateResolvedAt = new Date(detectedAt.getTime() + resolutionMs);
+  // Un incidente no puede cerrarse en el futuro.
+  const isResolved = !isStalled && candidateResolvedAt <= now;
+  const resolvedAt = isResolved ? candidateResolvedAt : null;
+  const status = resolveStatus(rng, isResolved);
+
+  const assets = buildAssets(rng, template);
+  const primaryAsset = assets[0];
+  if (primaryAsset === undefined) {
+    throw new Error(`La categoría ${template.category} no produjo activos afectados`);
+  }
+
+  const sourceIp = template.hasSourceIp && chance(rng, 0.85) ? randomIp(rng) : null;
+  const assignee = pick(rng, ANALYSTS);
+  const severityLabel = SEVERITY_LABEL[severity];
+
+  return {
+    id: `INC-${detectedAt.getFullYear()}-${String(sequence).padStart(4, '0')}`,
+    title: pick(rng, template.titles),
+    description: fillTemplate(pick(rng, template.descriptions), primaryAsset.name, sourceIp),
+    severity,
+    status,
+    category: template.category,
+    detectedAt: detectedAt.toISOString(),
+    resolvedAt: resolvedAt?.toISOString() ?? null,
+    assignee,
+    affectedAssets: assets,
+    sourceIp,
+    timeline: buildTimeline(rng, detectedAt, resolvedAt, status, severity, assignee, severityLabel),
+  };
+}
+
 function generateIncidents(): Incident[] {
   const rng = createRng(SEED);
   const now = new Date();
@@ -176,9 +237,6 @@ function generateIncidents(): Incident[] {
     const count = incidentsForDay(rng, daysAgo, day.getDay());
 
     for (let i = 0; i < count; i += 1) {
-      const template = pick(rng, WEIGHTED_CATEGORIES);
-      const severity = pick(rng, template.severityPool);
-
       // Sesgo hacia horario laboral, con una cola nocturna.
       const hour = chance(rng, 0.78) ? randomInt(rng, 8, 19) : randomInt(rng, 0, 23);
       const detectedAt = new Date(day);
@@ -187,50 +245,7 @@ function generateIncidents(): Incident[] {
         detectedAt.setTime(now.getTime() - randomInt(rng, 5, 200) * 60_000);
       }
 
-      // A cada incidente se le asigna su tiempo de resolución al detectarlo; que
-      // hoy siga abierto es consecuencia de que ese plazo aún no se ha cumplido.
-      const isStalled = chance(rng, STALLED_RATE);
-      const [minHours, maxHours] = RESOLUTION_HOURS[severity];
-      const resolutionMs = randomInt(rng, minHours * 60, maxHours * 60) * 60_000;
-      const candidateResolvedAt = new Date(detectedAt.getTime() + resolutionMs);
-      // Un incidente no puede cerrarse en el futuro.
-      const isResolved = !isStalled && candidateResolvedAt <= now;
-      const resolvedAt = isResolved ? candidateResolvedAt : null;
-      const status = resolveStatus(rng, isResolved);
-
-      const assets = buildAssets(rng, template);
-      const primaryAsset = assets[0];
-      if (primaryAsset === undefined) {
-        throw new Error(`La categoría ${template.category} no produjo activos afectados`);
-      }
-      const sourceIp = template.hasSourceIp && chance(rng, 0.85) ? randomIp(rng) : null;
-      const assignee = pick(rng, ANALYSTS);
-      const severityLabel = { critical: 'Crítica', high: 'Alta', medium: 'Media', low: 'Baja' }[
-        severity
-      ];
-
-      incidents.push({
-        id: `INC-${detectedAt.getFullYear()}-${String(incidents.length + 1).padStart(4, '0')}`,
-        title: pick(rng, template.titles),
-        description: fillTemplate(pick(rng, template.descriptions), primaryAsset.name, sourceIp),
-        severity,
-        status,
-        category: template.category,
-        detectedAt: detectedAt.toISOString(),
-        resolvedAt: resolvedAt?.toISOString() ?? null,
-        assignee,
-        affectedAssets: assets,
-        sourceIp,
-        timeline: buildTimeline(
-          rng,
-          detectedAt,
-          resolvedAt,
-          status,
-          severity,
-          assignee,
-          severityLabel,
-        ),
-      });
+      incidents.push(createIncident(rng, detectedAt, now, incidents.length + 1));
     }
   }
 
@@ -249,3 +264,9 @@ export const INCIDENTS: readonly Incident[] = generateIncidents();
  * discrepar entre sí.
  */
 export const GENERATED_AT: number = Date.now();
+
+/**
+ * Siguiente número de la serie de identificadores.
+ * El modo en vivo continúa desde aquí en lugar de reiniciar la numeración.
+ */
+export const NEXT_SEQUENCE: number = INCIDENTS.length + 1;

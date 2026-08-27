@@ -47,14 +47,25 @@ interface TrProps extends ComponentPropsWithoutRef<'tr'> {
   /** Añade el tratamiento de fila accionable: cursor, hover y foco visible. */
   readonly interactive?: boolean;
   readonly selected?: boolean;
+  /** Fila recién llegada por el flujo en vivo. */
+  readonly highlighted?: boolean;
 }
 
-export function Tr({ interactive = false, selected = false, className, ...props }: TrProps) {
+export function Tr({
+  interactive = false,
+  selected = false,
+  highlighted = false,
+  className,
+  ...props
+}: TrProps) {
   return (
     <tr
       className={cn(
         'transition-colors',
         interactive && 'cursor-pointer hover:bg-surface-hover focus-visible:bg-surface-hover',
+        // El resalte se apaga solo al quitarse la clase: `transition-colors` lo
+        // desvanece, sin necesidad de una animación propia.
+        highlighted && 'bg-accent-soft/60',
         // El borde izquierdo marca la fila abierta sin depender sólo del fondo.
         selected && 'bg-accent-soft/40 shadow-[inset_2px_0_0_0_var(--accent)]',
         className,

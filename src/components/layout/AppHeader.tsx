@@ -8,6 +8,7 @@
 
 import { ShieldCheck } from 'lucide-react';
 
+import { LiveToggle } from '@/components/layout/LiveToggle';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import type { Theme } from '@/hooks/useTheme';
 
@@ -16,9 +17,17 @@ interface AppHeaderProps {
   readonly onToggleTheme: () => void;
   /** Momento de la última actualización de los datos, ya formateado. */
   readonly updatedAt: string;
+  readonly live: boolean;
+  readonly onToggleLive: () => void;
 }
 
-export function AppHeader({ theme, onToggleTheme, updatedAt }: AppHeaderProps) {
+export function AppHeader({
+  theme,
+  onToggleTheme,
+  updatedAt,
+  live,
+  onToggleLive,
+}: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-10 border-b border-border-subtle bg-surface-base/95 backdrop-blur-sm">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-gutter-sm py-3 lg:px-gutter">
@@ -32,10 +41,11 @@ export function AppHeader({ theme, onToggleTheme, updatedAt }: AppHeaderProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <p className="hidden text-xs text-text-muted sm:block">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <p className="hidden text-xs text-text-muted md:block">
             Actualizado <span className="tabular">{updatedAt}</span>
           </p>
+          <LiveToggle running={live} onToggle={onToggleLive} />
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         </div>
       </div>

@@ -27,6 +27,8 @@ interface IncidentsTableProps {
   readonly onToggleSort: (column: SortableColumn) => void;
   readonly selectedId: string | null;
   readonly onSelect: (incident: Incident) => void;
+  /** Incidentes llegados hace poco por el flujo en vivo, para resaltarlos. */
+  readonly recentIds: readonly string[];
 }
 
 export function IncidentsTable({
@@ -35,6 +37,7 @@ export function IncidentsTable({
   onToggleSort,
   selectedId,
   onSelect,
+  recentIds,
 }: IncidentsTableProps) {
   const rowButtons = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -114,6 +117,7 @@ export function IncidentsTable({
               key={incident.id}
               interactive
               selected={isSelected}
+              highlighted={recentIds.includes(incident.id)}
               // Marca la fila abierta para tecnologías de asistencia; el borde
               // izquierdo es su equivalente visual.
               aria-current={isSelected ? 'true' : undefined}

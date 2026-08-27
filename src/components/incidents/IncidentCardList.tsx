@@ -20,9 +20,16 @@ interface IncidentCardListProps {
   readonly incidents: readonly Incident[];
   readonly selectedId: string | null;
   readonly onSelect: (incident: Incident) => void;
+  /** Incidentes llegados hace poco por el flujo en vivo, para resaltarlos. */
+  readonly recentIds: readonly string[];
 }
 
-export function IncidentCardList({ incidents, selectedId, onSelect }: IncidentCardListProps) {
+export function IncidentCardList({
+  incidents,
+  selectedId,
+  onSelect,
+  recentIds,
+}: IncidentCardListProps) {
   return (
     <ul className="divide-y divide-border-subtle">
       {incidents.map((incident) => {
@@ -39,6 +46,7 @@ export function IncidentCardList({ incidents, selectedId, onSelect }: IncidentCa
               className={cn(
                 'flex w-full items-start gap-3 px-gutter-sm py-3 text-left transition-colors',
                 'hover:bg-surface-hover',
+                recentIds.includes(incident.id) && 'bg-accent-soft/60',
                 isSelected && 'bg-accent-soft/40 shadow-[inset_2px_0_0_0_var(--accent)]',
               )}
             >
