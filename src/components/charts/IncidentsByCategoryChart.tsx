@@ -7,8 +7,13 @@
  * el tooltip la completa, así ninguna etiqueta se parte en dos líneas.
  *
  * Cada barra está apilada en dos segmentos, críticos y el resto, por la misma
- * razón que el gráfico de línea separa las series: el volumen por sí solo no
+ * razón que el gráfico de área separa las series: el volumen por sí solo no
  * dice si una categoría es un problema o sólo es ruidosa.
+ *
+ * El relleno degradado corre a lo largo de la barra, de opaco en el origen a
+ * translúcido en la punta. Sirve para algo además de para adornar: da al
+ * extremo un borde suave que evita que ocho barras a distinta longitud se lean
+ * como un bloque de color macizo.
  *
  * Las barras son accionables: al hacer clic, la categoría pasa a filtrar la
  * tabla. Eso es lo que convierte tres bloques sueltos en un tablero — se ve un
@@ -28,6 +33,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { usePrefersReducedMotion } from '@/hooks/useMediaQuery';
 import { SEVERITY_META } from '@/lib/catalog';
 import type { CategoryDatum, IncidentCategory } from '@/types';
 import { ChartCard, type ChartSeriesLegend } from './ChartCard';
@@ -55,6 +61,8 @@ export function IncidentsByCategoryChart({
   activeCategory,
   onSelectCategory,
 }: IncidentsByCategoryChartProps) {
+  const reducedMotion = usePrefersReducedMotion();
+
   // El apilado necesita el complemento explícito; `total` es la suma de ambos.
   const chartData = data.map((datum) => ({
     shortLabel: datum.shortLabel,
@@ -81,7 +89,7 @@ export function IncidentsByCategoryChart({
   const opacityFor = (index: number) => {
     if (!hasSelection) return 1;
     const datum = data[index];
-    return datum !== undefined && datum.category === activeCategory ? 1 : 0.3;
+    return datum !== undefined && datum.category === activeCategory ? 1 : 0.28;
   };
 
   // El tooltip recibe la etiqueta del eje, que es la corta; aquí recupera la completa.
@@ -104,6 +112,20 @@ export function IncidentsByCategoryChart({
           margin={{ top: 4, right: 16, bottom: 0, left: 4 }}
           barCategoryGap="22%"
         >
+          <defs>
+            {/* `gradientUnits` por defecto es la caja del propio elemento, así
+                que cada barra recibe el degradado completo sea cual sea su
+                longitud, en vez de un recorte del degradado del lienzo. */}
+            <linearGradient id="bar-critical" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" style={{ stopColor: CRITICAL_COLOR, stopOpacity: 1 }} />
+              <stop offset="100%" style={{ stopColor: CRITICAL_COLOR, stopOpacity: 0.55 }} />
+            </linearGradient>
+            <linearGradient id="bar-rest" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" style={{ stopColor: REST_COLOR, stopOpacity: 0.95 }} />
+              <stop offset="100%" style={{ stopColor: REST_COLOR, stopOpacity: 0.45 }} />
+            </linearGradient>
+          </defs>
+
           <CartesianGrid horizontal={false} stroke="var(--border-subtle)" strokeDasharray="3 3" />
           <XAxis
             type="number"
@@ -121,17 +143,24 @@ export function IncidentsByCategoryChart({
             width={86}
           />
           <Tooltip
-            content={<ChartTooltip titleFormatter={(label) => fullLabels.get(String(label)) ?? String(label)} />}
+            content={
+              <ChartTooltip
+                titleFormatter={(label) => fullLabels.get(String(label)) ?? String(label)}
+              />
+            }
             cursor={{ fill: 'var(--surface-hover)' }}
           />
           <Bar
             dataKey="critical"
             name="Críticos"
             stackId="severidad"
-            fill={CRITICAL_COLOR}
+            fill="url(#bar-critical)"
             radius={[3, 0, 0, 3]}
             onClick={handleBarClick}
             className="cursor-pointer"
+            isAnimationActive={!reducedMotion}
+            animationDuration={750}
+            animationEasing="ease-out"
           >
             {chartData.map((datum, index) => (
               <Cell key={datum.shortLabel} fillOpacity={opacityFor(index)} />
@@ -141,10 +170,13 @@ export function IncidentsByCategoryChart({
             dataKey="rest"
             name="Otras severidades"
             stackId="severidad"
-            fill={REST_COLOR}
+            fill="url(#bar-rest)"
             radius={[0, 3, 3, 0]}
             onClick={handleBarClick}
             className="cursor-pointer"
+            isAnimationActive={!reducedMotion}
+            animationDuration={750}
+            animationEasing="ease-out"
           >
             {chartData.map((datum, index) => (
               <Cell key={datum.shortLabel} fillOpacity={opacityFor(index)} />

@@ -48,7 +48,7 @@ export function createSearchIndex(incidents: readonly Incident[]): ReadonlyMap<s
 }
 
 /**
- * Aplica la búsqueda y los filtros de severidad, categoría y día.
+ * Aplica la búsqueda y los filtros de severidad, estado, categoría y día.
  * Una lista vacía significa "sin filtro", no "ninguna".
  */
 export function filterIncidents(
@@ -60,9 +60,14 @@ export function filterIncidents(
   // Todos los términos deben aparecer, en cualquier orden.
   const terms = query.length > 0 ? query.split(/\s+/) : [];
   const severities = new Set(filters.severities);
+  const statuses = new Set(filters.statuses);
 
   return incidents.filter((incident) => {
     if (severities.size > 0 && !severities.has(incident.severity)) {
+      return false;
+    }
+
+    if (statuses.size > 0 && !statuses.has(incident.status)) {
       return false;
     }
 

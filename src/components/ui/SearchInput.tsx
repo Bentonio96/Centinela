@@ -7,7 +7,7 @@
  */
 
 import { Search, X } from 'lucide-react';
-import { useId } from 'react';
+import { useId, type RefObject } from 'react';
 
 import { cn } from '@/lib/cn';
 
@@ -18,10 +18,28 @@ interface SearchInputProps {
   readonly label: string;
   readonly placeholder?: string;
   readonly className?: string;
+  /** Permite a quien lo monta enfocarlo, p. ej. desde un atajo de teclado. */
+  readonly inputRef?: RefObject<HTMLInputElement | null> | undefined;
+  /**
+   * Tecla que enfoca el campo, dibujada dentro como pista.
+   *
+   * Se oculta en pantallas pequeñas: sin teclado físico, anunciar un atajo es
+   * ocupar sitio para no decir nada.
+   */
+  readonly shortcutHint?: string | undefined;
 }
 
-export function SearchInput({ value, onChange, label, placeholder, className }: SearchInputProps) {
+export function SearchInput({
+  value,
+  onChange,
+  label,
+  placeholder,
+  className,
+  inputRef,
+  shortcutHint,
+}: SearchInputProps) {
   const inputId = useId();
+  const showHint = shortcutHint !== undefined && value.length === 0;
 
   return (
     <div className={cn('relative', className)}>
@@ -34,6 +52,7 @@ export function SearchInput({ value, onChange, label, placeholder, className }: 
       />
       <input
         id={inputId}
+        ref={inputRef}
         type="search"
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -45,6 +64,15 @@ export function SearchInput({ value, onChange, label, placeholder, className }: 
           '[&::-webkit-search-cancel-button]:hidden',
         )}
       />
+      {showHint && (
+        <kbd
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 rounded border border-border-subtle bg-surface-raised px-1.5 py-0.5 font-mono text-[0.6875rem] leading-none text-text-muted sm:block"
+        >
+          {shortcutHint}
+        </kbd>
+      )}
+
       {value.length > 0 && (
         <button
           type="button"

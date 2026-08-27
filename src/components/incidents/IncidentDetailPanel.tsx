@@ -46,9 +46,21 @@ function SectionTitle({ children }: { readonly children: ReactNode }) {
 interface IncidentDetailPanelProps {
   readonly incident: Incident | null;
   readonly onClose: () => void;
+  /** Recorrido por la página visible sin cerrar el panel. */
+  readonly onPrev: () => void;
+  readonly onNext: () => void;
+  readonly hasPrev: boolean;
+  readonly hasNext: boolean;
 }
 
-export function IncidentDetailPanel({ incident, onClose }: IncidentDetailPanelProps) {
+export function IncidentDetailPanel({
+  incident,
+  onClose,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
+}: IncidentDetailPanelProps) {
   const elapsedHours =
     incident === null
       ? 0
@@ -58,6 +70,10 @@ export function IncidentDetailPanel({ incident, onClose }: IncidentDetailPanelPr
     <SidePanel
       open={incident !== null}
       onClose={onClose}
+      onPrev={onPrev}
+      onNext={onNext}
+      hasPrev={hasPrev}
+      hasNext={hasNext}
       title={incident?.title ?? ''}
       eyebrow={
         incident !== null && (

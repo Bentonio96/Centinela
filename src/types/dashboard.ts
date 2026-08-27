@@ -4,7 +4,7 @@
  * describen cómo se *mira* el dominio, no el dominio en sí.
  */
 
-import type { IncidentCategory, Severity } from './incident';
+import type { IncidentCategory, IncidentStatus, Severity } from './incident';
 
 /** Columnas por las que se puede ordenar la tabla. */
 export const SORTABLE_COLUMNS = ['id', 'title', 'severity', 'status', 'category', 'detectedAt'] as const;
@@ -37,6 +37,15 @@ export interface IncidentFilters {
   readonly category: IncidentCategory | null;
   /** Día concreto `YYYY-MM-DD`, emitido al hacer clic en el gráfico de línea. */
   readonly day: string | null;
+  /**
+   * Estados del ciclo de vida, emitidos al pulsar una tarjeta de indicador.
+   *
+   * Es de selección múltiple porque el caso que importa —"sin resolver"— son
+   * tres estados a la vez, no uno. No tiene control propio en la barra de
+   * filtros: se activa desde los indicadores, que son botones y por tanto
+   * alcanzables con el teclado, y se quita desde su chip.
+   */
+  readonly statuses: readonly IncidentStatus[];
 }
 
 /**
@@ -89,4 +98,18 @@ export interface CategoryDatum {
   readonly shortLabel: string;
   readonly total: number;
   readonly critical: number;
+}
+
+/**
+ * Serie corta por métrica, para el sparkline de cada tarjeta.
+ *
+ * Un porcentaje da la dirección pero no la forma: no distingue una subida
+ * sostenida durante un mes de un pico de ayer sobre un mes plano. Son la misma
+ * cifra y no significan lo mismo.
+ */
+export interface MetricSparklines {
+  readonly openIncidents: readonly number[];
+  readonly criticalIncidents: readonly number[];
+  readonly meanTimeToResolveHours: readonly number[];
+  readonly resolvedThisWeek: readonly number[];
 }

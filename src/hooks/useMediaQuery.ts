@@ -32,3 +32,16 @@ export function useMediaQuery(query: string): boolean {
  * criterios distintos.
  */
 export const TABLE_BREAKPOINT = '(min-width: 768px)';
+
+/**
+ * Preferencia de movimiento reducido del sistema.
+ *
+ * El CSS ya la respeta con su bloque `@media`, pero las animaciones de Recharts
+ * las calcula JavaScript y no las alcanza ninguna regla de estilo: hay que
+ * apagarlas explícitamente.
+ */
+export const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
+
+export function usePrefersReducedMotion(): boolean {
+  return useMediaQuery(REDUCED_MOTION);
+}

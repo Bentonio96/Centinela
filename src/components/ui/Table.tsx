@@ -64,8 +64,12 @@ export function Tr({
         'transition-colors',
         interactive && 'cursor-pointer hover:bg-surface-hover focus-visible:bg-surface-hover',
         // El resalte se apaga solo al quitarse la clase: `transition-colors` lo
-        // desvanece, sin necesidad de una animación propia.
-        highlighted && 'bg-accent-soft/60',
+        // desvanece, sin necesidad de una animación propia. El barrido de luz
+        // se suma encima y sólo corre una vez, al llegar la fila.
+        //
+        // Sólo se anima la llegada, no cada repintado: filtrar reordena las 25
+        // filas y animarlas todas convertiría cada pulsación en un espectáculo.
+        highlighted && 'row-arrival bg-accent-soft/60',
         // El borde izquierdo marca la fila abierta sin depender sólo del fondo.
         selected && 'bg-accent-soft/40 shadow-[inset_2px_0_0_0_var(--accent)]',
         className,

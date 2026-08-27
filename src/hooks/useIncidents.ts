@@ -16,7 +16,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createSearchIndex, filterIncidents, sortIncidents } from '@/lib/filterIncidents';
 import { parseViewState, toUrl, type ViewState } from '@/lib/urlState';
-import type { Incident, IncidentCategory, Severity, SortableColumn } from '@/types';
+import type {
+  Incident,
+  IncidentCategory,
+  IncidentStatus,
+  Severity,
+  SortableColumn,
+} from '@/types';
 
 /** Filas por página. Suficiente para llenar una pantalla sin volverla infinita. */
 export const PAGE_SIZE = 25;
@@ -58,6 +64,29 @@ function currentUrl(): string {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
+/**
+ * Un conjunto de filtros completo, tal como lo emite una tarjeta de indicador.
+ *
+ * Se aplica reemplazando —no combinando— todo lo que hubiera antes: pulsar
+ * "Críticos sin resolver" tiene que llevar exactamente a esos, no a esos
+ * intersecados con lo que quedara de una búsqueda anterior. Lo que se omite
+ * queda limpio.
+ */
+export interface FilterPreset {
+  readonly search?: string;
+  readonly severities?: readonly Severity[];
+  readonly statuses?: readonly IncidentStatus[];
+  readonly category?: IncidentCategory | null;
+  readonly day?: string | null;
+}
+
+/** Igualdad sin importar el orden: son conjuntos, no secuencias. */
+function sameValues<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((value) => set.has(value));
+}
+
 export interface UseIncidentsResult {
   /** Incidentes de la página actual, ya filtrados y ordenados. */
   readonly incidents: readonly Incident[];
@@ -68,6 +97,7 @@ export interface UseIncidentsResult {
 
   readonly search: string;
   readonly severities: readonly Severity[];
+  readonly statuses: readonly IncidentStatus[];
   readonly category: IncidentCategory | null;
   readonly day: string | null;
   readonly hasActiveFilters: boolean;
@@ -83,6 +113,11 @@ export interface UseIncidentsResult {
    */
   readonly selectCategory: (category: IncidentCategory | null) => void;
   readonly selectDay: (day: string | null) => void;
+  readonly clearStatuses: () => void;
+  /** Reemplaza todos los filtros por los del conjunto dado. */
+  readonly applyPreset: (preset: FilterPreset) => void;
+  /** Si la vista actual es exactamente la que produce ese conjunto. */
+  readonly isPresetActive: (preset: FilterPreset) => boolean;
   readonly clearFilters: () => void;
 
   readonly sort: ViewState['sort'];
@@ -94,6 +129,10 @@ export interface UseIncidentsResult {
 
   readonly selectedIncident: Incident | null;
   readonly selectIncident: (incident: Incident) => void;
+  /** Salta al incidente anterior o siguiente de la página, sin cerrar el panel. */
+  readonly selectAdjacentIncident: (offset: 1 | -1) => void;
+  /** Si hay a dónde saltar en esa dirección, para desactivar el control. */
+  readonly hasAdjacentIncident: (offset: 1 | -1) => boolean;
   readonly closeIncident: () => void;
 }
 
@@ -162,10 +201,11 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
           severities: view.severities,
           category: view.category,
           day: view.day,
+          statuses: view.statuses,
         },
         searchIndex,
       ),
-    [source, view.search, view.severities, view.category, view.day, searchIndex],
+    [source, view.search, view.severities, view.statuses, view.category, view.day, searchIndex],
   );
 
   const sorted = useMemo(() => sortIncidents(filtered, view.sort), [filtered, view.sort]);
@@ -214,11 +254,40 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
     [filter],
   );
 
+  const clearStatuses = useCallback(() => {
+    filter((current) => ({ ...current, statuses: [] }));
+  }, [filter]);
+
+  const applyPreset = useCallback(
+    (preset: FilterPreset) => {
+      filter((current) => ({
+        ...current,
+        search: preset.search ?? '',
+        severities: preset.severities ?? [],
+        statuses: preset.statuses ?? [],
+        category: preset.category ?? null,
+        day: preset.day ?? null,
+      }));
+    },
+    [filter],
+  );
+
+  const isPresetActive = useCallback(
+    (preset: FilterPreset) =>
+      view.search === (preset.search ?? '') &&
+      view.category === (preset.category ?? null) &&
+      view.day === (preset.day ?? null) &&
+      sameValues(view.severities, preset.severities ?? []) &&
+      sameValues(view.statuses, preset.statuses ?? []),
+    [view],
+  );
+
   const clearFilters = useCallback(() => {
     filter((current) => ({
       ...current,
       search: '',
       severities: [],
+      statuses: [],
       category: null,
       day: null,
     }));
@@ -268,6 +337,39 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
     [navigate],
   );
 
+  /**
+   * Índice del incidente abierto dentro de la página visible.
+   *
+   * La navegación se queda dentro de la página a propósito: saltar de la
+   * última fila de una página a la primera de la siguiente cambiaría el listado
+   * bajo los pies de quien sólo quería ver el incidente de al lado.
+   */
+  const selectedIndex = useMemo(
+    () => incidents.findIndex((incident) => incident.id === view.selectedId),
+    [incidents, view.selectedId],
+  );
+
+  const hasAdjacentIncident = useCallback(
+    (offset: 1 | -1) => {
+      if (selectedIndex < 0) return false;
+      const next = selectedIndex + offset;
+      return next >= 0 && next < incidents.length;
+    },
+    [incidents.length, selectedIndex],
+  );
+
+  const selectAdjacentIncident = useCallback(
+    (offset: 1 | -1) => {
+      const next = incidents[selectedIndex + offset];
+      if (selectedIndex < 0 || next === undefined) return;
+
+      // `replace` y no `push`: recorrer diez incidentes no debe dejar diez
+      // entradas que haya que deshacer una por una para cerrar el panel.
+      navigate((current) => ({ ...current, selectedId: next.id }));
+    },
+    [incidents, navigate, selectedIndex],
+  );
+
   const closeIncident = useCallback(() => {
     // Si el panel se abrió empujando una entrada, cerrarlo es volver atrás: así
     // el botón de cerrar y el gesto del navegador terminan en el mismo sitio.
@@ -287,17 +389,22 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
 
     search: view.search,
     severities: view.severities,
+    statuses: view.statuses,
     category: view.category,
     day: view.day,
     hasActiveFilters:
       view.search.trim() !== '' ||
       view.severities.length > 0 ||
+      view.statuses.length > 0 ||
       view.category !== null ||
       view.day !== null,
     setSearch,
     toggleSeverity,
     selectCategory,
     selectDay,
+    clearStatuses,
+    applyPreset,
+    isPresetActive,
     clearFilters,
 
     sort: view.sort,
@@ -309,6 +416,8 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
 
     selectedIncident,
     selectIncident,
+    selectAdjacentIncident,
+    hasAdjacentIncident,
     closeIncident,
   };
 }

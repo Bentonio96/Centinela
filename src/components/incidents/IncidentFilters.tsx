@@ -1,5 +1,6 @@
 /**
- * Barra de filtros de la tabla: búsqueda libre, categoría y severidades.
+ * Barra de filtros de la tabla: búsqueda, categoría, severidades y el enlace
+ * de la vista.
  *
  * El selector de categoría existe además del gráfico de barras, no en lugar de
  * él. Filtrar haciendo clic en una barra es cómodo con el ratón, pero sería la
@@ -7,16 +8,23 @@
  * una barra. Un `<select>` nativo lo resuelve sin inventar nada: llega por Tab,
  * se abre con el teclado y lo anuncian los lectores de pantalla.
  *
+ * El atajo de `/` se registra aquí y no en `App` porque el campo que enfoca
+ * vive aquí. Un atajo global cuyo destino está tres componentes más abajo
+ * obliga a pasar una `ref` por toda la cadena para no ganar nada.
+ *
  * El recuento de resultados no vive aquí sino en la cabecera del panel, junto
  * al título: es el resultado de filtrar, no un control más.
  */
 
 import { X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 import { Button } from '@/components/ui/Button';
+import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup';
 import { CATEGORY_OPTIONS, SEVERITY_OPTIONS } from '@/lib/catalog';
+import { hasModifier, isTypingTarget } from '@/lib/keyboard';
 import type { IncidentCategory, Severity } from '@/types';
 
 /** Las opciones no dependen de las props: se construyen una sola vez. */
@@ -51,6 +59,26 @@ export function IncidentFilters({
   hasActiveFilters,
   onClearFilters,
 }: IncidentFiltersProps) {
+  const searchRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== '/' || hasModifier(event)) return;
+      // Sin esta guarda, escribir una barra en cualquier campo movería el foco.
+      if (isTypingTarget(event.target)) return;
+
+      // El `preventDefault` evita que la barra acabe escrita en el campo que
+      // se acaba de enfocar, y que Firefox abra su búsqueda rápida.
+      event.preventDefault();
+      searchRef.current?.focus();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   return (
     <div className="flex flex-col gap-3 border-b border-border-subtle px-gutter-sm py-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -59,6 +87,8 @@ export function IncidentFilters({
           onChange={onSearchChange}
           label="Buscar incidentes"
           placeholder="Buscar por título, ID o activo…"
+          inputRef={searchRef}
+          shortcutHint="/"
           className="sm:w-72"
         />
 
@@ -87,13 +117,15 @@ export function IncidentFilters({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <ToggleGroup
           label="Filtrar por severidad"
           options={SEVERITY_TOGGLES}
           selected={severities}
           onToggle={onToggleSeverity}
         />
+
+        <CopyLinkButton />
 
         {hasActiveFilters && (
           <Button variant="ghost" size="sm" onClick={onClearFilters}>

@@ -66,7 +66,12 @@ export function IncidentsPanel({ state, recentIds }: IncidentsPanelProps) {
         onClearFilters={state.clearFilters}
       />
 
-      <ActiveFilters day={state.day} onClearDay={() => state.selectDay(null)} />
+      <ActiveFilters
+        day={state.day}
+        statuses={state.statuses}
+        onClearDay={() => state.selectDay(null)}
+        onClearStatuses={state.clearStatuses}
+      />
 
       {isEmpty ? (
         <EmptyState

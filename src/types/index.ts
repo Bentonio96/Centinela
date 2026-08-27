@@ -13,6 +13,7 @@ export type {
   DashboardMetrics,
   IncidentFilters,
   MetricDelta,
+  MetricSparklines,
   SortableColumn,
   SortDirection,
   SortState,

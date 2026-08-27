@@ -12,8 +12,15 @@
  * propagar un tipo mentiroso al resto de la aplicación.
  */
 
-import type { IncidentCategory, Severity, SortableColumn, SortDirection, SortState } from '@/types';
-import { CATEGORIES, SEVERITIES, SORTABLE_COLUMNS } from '@/types';
+import type {
+  IncidentCategory,
+  IncidentStatus,
+  Severity,
+  SortableColumn,
+  SortDirection,
+  SortState,
+} from '@/types';
+import { CATEGORIES, SEVERITIES, SORTABLE_COLUMNS, STATUSES } from '@/types';
 
 /** Estado completo de la vista de incidentes. */
 export interface ViewState {
@@ -23,6 +30,8 @@ export interface ViewState {
   readonly category: IncidentCategory | null;
   /** Día concreto `YYYY-MM-DD`, emitido al hacer clic en el gráfico de línea. */
   readonly day: string | null;
+  /** Estados del ciclo de vida, emitidos desde las tarjetas de indicador. */
+  readonly statuses: readonly IncidentStatus[];
   readonly sort: SortState;
   readonly page: number;
   readonly selectedId: string | null;
@@ -36,6 +45,7 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   severities: [],
   category: null,
   day: null,
+  statuses: [],
   sort: DEFAULT_SORT,
   page: 1,
   selectedId: null,
@@ -47,6 +57,7 @@ const PARAM = {
   severities: 'sev',
   category: 'cat',
   day: 'dia',
+  statuses: 'estado',
   sort: 'orden',
   page: 'p',
   selected: 'inc',
@@ -56,6 +67,7 @@ const PARAM = {
 // así que no hace falta ninguna aserción de tipo para consultarlos.
 const SEVERITY_VALUES: ReadonlySet<string> = new Set(SEVERITIES);
 const CATEGORY_VALUES: ReadonlySet<string> = new Set(CATEGORIES);
+const STATUS_VALUES: ReadonlySet<string> = new Set(STATUSES);
 const COLUMN_VALUES: ReadonlySet<string> = new Set(SORTABLE_COLUMNS);
 
 function isSeverity(value: string): value is Severity {
@@ -64,6 +76,10 @@ function isSeverity(value: string): value is Severity {
 
 function isCategory(value: string): value is IncidentCategory {
   return CATEGORY_VALUES.has(value);
+}
+
+function isStatus(value: string): value is IncidentStatus {
+  return STATUS_VALUES.has(value);
 }
 
 function isSortableColumn(value: string): value is SortableColumn {
@@ -122,6 +138,7 @@ export function parseViewState(queryString: string): ViewState {
     severities: parseList(params.get(PARAM.severities), isSeverity),
     category: parseCategory(params.get(PARAM.category)),
     day: parseDay(params.get(PARAM.day)),
+    statuses: parseList(params.get(PARAM.statuses), isStatus),
     sort: parseSort(params.get(PARAM.sort)),
     page: parsePage(params.get(PARAM.page)),
     selectedId: params.get(PARAM.selected),
@@ -140,6 +157,7 @@ export function toQueryString(state: ViewState): string {
   if (state.severities.length > 0) params.set(PARAM.severities, state.severities.join(','));
   if (state.category !== null) params.set(PARAM.category, state.category);
   if (state.day !== null) params.set(PARAM.day, state.day);
+  if (state.statuses.length > 0) params.set(PARAM.statuses, state.statuses.join(','));
 
   if (state.sort.column !== DEFAULT_SORT.column || state.sort.direction !== DEFAULT_SORT.direction) {
     params.set(PARAM.sort, `${state.sort.column}:${state.sort.direction}`);

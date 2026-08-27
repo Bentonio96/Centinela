@@ -17,6 +17,7 @@ import type {
   Incident,
   IncidentCategory,
   MetricDelta,
+  MetricSparklines,
   Severity,
   TrendPoint,
 } from '@/types';
@@ -197,4 +198,37 @@ export function buildCategorySeries(
       };
     })
     .sort((a, b) => b.total - a.total);
+}
+
+/**
+ * Serie diaria de cada métrica a lo largo de la ventana observada.
+ *
+ * Cada punto reconstruye la métrica *tal como habría sido* ese día, con la
+ * misma definición que usa `computeMetrics`: los conteos son el estado al
+ * cierre de la jornada y los dos indicadores de resolución son ventanas
+ * móviles de siete días. Recalcular en vez de aproximar es lo que evita que el
+ * sparkline y el número grande cuenten historias distintas.
+ */
+export function buildMetricSparklines(
+  incidents: readonly Incident[],
+  now: number = Date.now(),
+  days: number = TREND_DAYS,
+): MetricSparklines {
+  const openIncidents: number[] = [];
+  const criticalIncidents: number[] = [];
+  const meanTimeToResolveHours: number[] = [];
+  const resolvedThisWeek: number[] = [];
+
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const at = now - offset * DAY_MS;
+    const weekBefore = at - WEEK_MS;
+    const resolved = resolvedWithin(incidents, weekBefore, at);
+
+    openIncidents.push(countOpen(incidents, at));
+    criticalIncidents.push(countOpen(incidents, at, 'critical'));
+    meanTimeToResolveHours.push(meanResolutionHours(resolved));
+    resolvedThisWeek.push(resolved.length);
+  }
+
+  return { openIncidents, criticalIncidents, meanTimeToResolveHours, resolvedThisWeek };
 }

@@ -52,15 +52,43 @@
   --severity-medium-bg: oklch(0.32 0.06 90);
   --severity-medium-border: oklch(0.45 0.09 90);
 
-  --severity-low: oklch(0.755 0.075 225);
-  --severity-low-bg: oklch(0.3 0.04 225);
-  --severity-low-border: oklch(0.42 0.055 225);
+  /* Desplazada hacia el gris azulado y lejos del acento: antes compartían tono
+     casi exacto y el punto de "Baja" se confundía con el color de foco. */
+  --severity-low: oklch(0.72 0.035 245);
+  --severity-low-bg: oklch(0.3 0.022 245);
+  --severity-low-border: oklch(0.42 0.03 245);
 
   /* Estado del ciclo de vida */
   --status-open: oklch(0.755 0.155 52);
   --status-investigating: oklch(0.75 0.13 275);
   --status-contained: oklch(0.79 0.115 200);
   --status-resolved: oklch(0.77 0.15 152);
+
+  /* -------------------------------------------------------------------------
+     Capa atmosférica
+     -------------------------------------------------------------------------
+     Tres focos de luz fijos detrás de toda la aplicación. Son de croma bajo y
+     alfa muy pequeño a propósito: su trabajo es que el fondo deje de ser un
+     plano liso, no teñir la interfaz. Con alfa más alto los grises dejarían de
+     ser neutros y las severidades perderían su referencia de color.
+  ------------------------------------------------------------------------- */
+  --ambient-1: oklch(0.7 0.145 245 / 0.17);
+  --ambient-2: oklch(0.66 0.15 305 / 0.12);
+  --ambient-3: oklch(0.75 0.12 190 / 0.07);
+
+  /* Vidrio. La superficie es translúcida para que el fondo atmosférico se vea
+     a través, y el `highlight` dibuja el filo iluminado del borde superior. */
+  --glass-bg: oklch(0.225 0.013 264 / 0.66);
+  --glass-border: oklch(1 0 0 / 0.08);
+  --glass-highlight: oklch(1 0 0 / 0.17);
+  --glass-spot: oklch(0.72 0.15 245 / 0.1);
+
+  /* Halos semánticos de las tarjetas de indicador. */
+  --glow-accent: oklch(0.7 0.145 245 / 0.2);
+  --glow-critical: oklch(0.7 0.19 21 / 0.22);
+  --glow-high: oklch(0.755 0.155 52 / 0.2);
+  --glow-medium: oklch(0.83 0.13 90 / 0.18);
+  --glow-resolved: oklch(0.77 0.15 152 / 0.2);
 }
 
 .light {
@@ -77,7 +105,11 @@
 
   --text-primary: oklch(0.24 0.014 264);
   --text-secondary: oklch(0.44 0.014 264);
-  --text-muted: oklch(0.58 0.013 264);
+  /* Medido, no heredado del tema oscuro: a L 0.58 este gris se quedaba en
+     3.76:1 sobre `surface-sunken` —la cabecera de la tabla— y no alcanzaba el
+     4.5:1 de AA en ninguna superficie. A 0.53 pasa en las tres (4.63 / 5.06 /
+     5.28), que es lo mínimo aceptable para texto de 12px. */
+  --text-muted: oklch(0.53 0.013 264);
 
   --accent: oklch(0.53 0.16 250);
   --accent-hover: oklch(0.46 0.16 250);
@@ -96,14 +128,31 @@
   --severity-medium-bg: oklch(0.965 0.035 90);
   --severity-medium-border: oklch(0.87 0.07 85);
 
-  --severity-low: oklch(0.5 0.07 230);
-  --severity-low-bg: oklch(0.96 0.015 230);
-  --severity-low-border: oklch(0.88 0.03 230);
+  --severity-low: oklch(0.48 0.028 250);
+  --severity-low-bg: oklch(0.96 0.008 250);
+  --severity-low-border: oklch(0.88 0.014 250);
 
   --status-open: oklch(0.52 0.14 48);
   --status-investigating: oklch(0.5 0.15 278);
   --status-contained: oklch(0.5 0.1 210);
   --status-resolved: oklch(0.48 0.13 155);
+
+  --ambient-1: oklch(0.6 0.15 250 / 0.11);
+  --ambient-2: oklch(0.66 0.14 305 / 0.08);
+  --ambient-3: oklch(0.72 0.12 190 / 0.06);
+
+  /* En claro la tarjeta es casi blanca, así que el vidrio se nota por lo que
+     deja pasar del fondo atmosférico, no por el desenfoque. */
+  --glass-bg: oklch(1 0 0 / 0.72);
+  --glass-border: oklch(0.5 0.02 264 / 0.14);
+  --glass-highlight: oklch(1 0 0 / 0.95);
+  --glass-spot: oklch(0.53 0.16 250 / 0.055);
+
+  --glow-accent: oklch(0.53 0.16 250 / 0.14);
+  --glow-critical: oklch(0.5 0.19 24 / 0.14);
+  --glow-high: oklch(0.52 0.14 48 / 0.13);
+  --glow-medium: oklch(0.52 0.1 78 / 0.12);
+  --glow-resolved: oklch(0.48 0.13 155 / 0.13);
 }
 
 /* ---------------------------------------------------------------------------
@@ -122,6 +171,7 @@
 
   --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
+  --color-border-glass: var(--glass-border);
 
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
@@ -167,17 +217,27 @@
 
   /* Radios */
   --radius-control: 0.375rem;
-  --radius-card: 0.5rem;
+  --radius-card: 0.75rem;
   --radius-pill: 9999px;
+
+  /* Desenfoque del vidrio. Un solo valor: mezclar intensidades hace que unas
+     superficies parezcan más cercanas que otras sin ninguna razón. */
+  --blur-glass: 18px;
 
   /* Sombras contenidas: sólo las capas flotantes se despegan del fondo. */
   --shadow-panel: -12px 0 32px -12px oklch(0 0 0 / 0.45);
   --shadow-popover: 0 4px 16px -4px oklch(0 0 0 / 0.35);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.06), 0 8px 24px -16px oklch(0 0 0 / 0.4);
+  --shadow-lift: 0 2px 4px oklch(0 0 0 / 0.07), 0 16px 36px -18px oklch(0 0 0 / 0.55);
 
-  /* Entrada del panel lateral. Corta y sin rebote: es una herramienta, no una
-     presentación. Se aplica bajo `motion-safe`, así que quien pida menos
-     movimiento no la ve. */
-  --animate-panel-in: panel-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Curva única para todo lo que entra en pantalla: sale rápido y frena. Sin
+     rebote, que es lo que separa una herramienta de una presentación. */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Entrada del panel lateral. */
+  --animate-panel-in: panel-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-toast-in: toast-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-halo: halo 2.6s ease-in-out infinite;
 
   @keyframes panel-in {
     from {
@@ -189,6 +249,52 @@
       opacity: 1;
     }
   }
+
+  @keyframes toast-in {
+    from {
+      transform: translateY(0.75rem) scale(0.97);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
+  /* Entrada escalonada de los bloques del tablero. */
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Barrido de luz sobre una fila recién llegada por el flujo en vivo. */
+  @keyframes row-sweep {
+    from {
+      background-position: 220% 0;
+    }
+    to {
+      background-position: -120% 0;
+    }
+  }
+
+  /* Halo que respira alrededor del indicador de "en vivo". */
+  @keyframes halo {
+    0%,
+    100% {
+      opacity: 0.4;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.35);
+    }
+  }
 }
 
 @layer base {
@@ -198,6 +304,15 @@
 
   body {
     background-color: var(--surface-base);
+    /* Los tres focos atmosféricos. `fixed` los ancla al viewport: si
+       scrollearan, el degradado se leería como contenido en movimiento en
+       lugar de como iluminación de la escena. */
+    background-image:
+      radial-gradient(58rem 34rem at 8% -6%, var(--ambient-1), transparent 68%),
+      radial-gradient(46rem 30rem at 96% 4%, var(--ambient-2), transparent 66%),
+      radial-gradient(52rem 40rem at 50% 108%, var(--ambient-3), transparent 70%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     color: var(--text-primary);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -217,12 +332,113 @@
   }
 }
 
+@layer components {
+  /* -------------------------------------------------------------------------
+     Superficie de vidrio
+     -------------------------------------------------------------------------
+     Fondo translúcido más desenfoque de lo que hay detrás. El `saturate`
+     compensa que el desenfoque apaga el color del fondo atmosférico.
+  ------------------------------------------------------------------------- */
+  .surface-glass {
+    position: relative;
+    background-color: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--blur-glass)) saturate(1.5);
+    -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.5);
+  }
+
+  /* El filo iluminado del borde superior: es lo que hace leer la tarjeta como
+     un objeto físico con una luz encima. La máscara vacía el relleno y deja
+     sólo el contorno de 1px, así el degradado sigue el radio de las esquinas
+     en vez de cortarse en recto. */
+  .surface-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(to bottom, var(--glass-highlight), transparent 42%);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    pointer-events: none;
+  }
+
+  /* -------------------------------------------------------------------------
+     Foco que sigue al cursor
+     -------------------------------------------------------------------------
+     `--spot-x` y `--spot-y` los escribe `useSpotlight` directamente sobre el
+     estilo del nodo, sin pasar por el estado de React: un `mousemove` que
+     provocara render sería trabajo inútil sesenta veces por segundo.
+  ------------------------------------------------------------------------- */
+  .spotlight::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      16rem circle at var(--spot-x, 50%) var(--spot-y, 0%),
+      var(--glass-spot),
+      transparent 62%
+    );
+    opacity: 0;
+    transition: opacity 260ms var(--ease-out-soft);
+    pointer-events: none;
+  }
+
+  .spotlight[data-spot='on']::after {
+    opacity: 1;
+  }
+
+  /* Entrada escalonada. Sin `prefers-reduced-motion` el bloque de abajo anula
+     duración y retardo, y `forwards` deja el elemento en su estado final: la
+     página aparece completa, sin movimiento y sin huecos invisibles. */
+  .rise {
+    opacity: 0;
+    animation: rise-in 520ms var(--ease-out-soft) var(--rise-delay, 0ms) forwards;
+  }
+
+  /* Barrido de luz sobre la fila que acaba de entrar. Va como `background-image`
+     encima del color de resalte, así ambos conviven sin un nodo extra. */
+  .row-arrival {
+    background-image: linear-gradient(
+      100deg,
+      transparent 34%,
+      var(--glass-highlight) 50%,
+      transparent 66%
+    );
+    background-size: 220% 100%;
+    animation: row-sweep 1.1s var(--ease-out-soft);
+  }
+
+  /* Texto con relleno degradado. Sólo para cifras y titulares cortos: en un
+     párrafo el degradado se come el contraste de las líneas bajas. */
+  .text-gradient {
+    background-image: linear-gradient(
+      135deg,
+      var(--text-primary) 10%,
+      var(--gradient-to, var(--accent)) 130%
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* Sin esto, un bloque con 400ms de retardo seguiría invisible ese tiempo
+       aunque su animación ya no dure nada. */
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
   }
 }

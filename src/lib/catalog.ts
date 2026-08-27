@@ -115,6 +115,20 @@ export const STATUS_META: Readonly<Record<IncidentStatus, StatusMeta>> = {
 
 export const STATUS_OPTIONS: readonly StatusMeta[] = STATUSES.map((status) => STATUS_META[status]);
 
+/**
+ * Los tres estados que significan "esto todavía es un problema".
+ *
+ * Vive aquí y no repartido por los componentes porque es una definición del
+ * dominio: si mañana apareciera un estado nuevo, el indicador de la cabecera y
+ * el filtro que abre al pulsarlo tienen que cambiar juntos o dejarán de
+ * coincidir.
+ */
+export const UNRESOLVED_STATUSES: readonly IncidentStatus[] = [
+  'open',
+  'investigating',
+  'contained',
+];
+
 export interface CategoryMeta {
   readonly value: IncidentCategory;
   readonly label: string;
