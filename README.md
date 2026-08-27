@@ -47,7 +47,7 @@ Queda en `http://localhost:5173`.
 | `npm run preview` | Sirve el build de producción |
 | `npm run typecheck` | Sólo TypeScript |
 | `npm run lint` | oxlint |
-| `npm run verify` | 45 comprobaciones de UI sobre un navegador real |
+| `npm run verify` | 74 comprobaciones de UI sobre un navegador real |
 
 `npm run verify` necesita el servidor de desarrollo levantado y el navegador de
 Playwright instalado:
@@ -74,9 +74,9 @@ src/
 │  │               IncidentCardList, IncidentDetailPanel, SeverityBadge…
 │  ├─ charts/      ChartCard, IncidentsTrendChart, IncidentsByCategoryChart
 │  └─ layout/      AppHeader, ThemeToggle
-├─ hooks/          useIncidents, useTheme, useMediaQuery
-├─ lib/            metrics, filterIncidents, catalog, format, cn
-├─ data/           incidents (generador), templates, random
+├─ hooks/          useIncidents, useTheme, useMediaQuery, useLiveFeed
+├─ lib/            metrics, filterIncidents, urlState, catalog, format, cn
+├─ data/           incidents (generador), liveFeed, templates, random
 ├─ types/          incident, dashboard
 └─ index.css       design tokens
 ```
@@ -130,12 +130,69 @@ apilarse.
 
 <img src="docs/movil.png" width="320" alt="Vista móvil con las métricas apiladas">
 
-### Las métricas y los gráficos no reaccionan a los filtros
+### El estado vive en la URL
 
-Los filtros son una herramienta de triaje sobre el listado. Si además movieran
-los indicadores, sería imposible distinguir "bajaron los incidentes" de
-"filtré la vista". Los indicadores siempre describen los últimos 30 días
-completos.
+Filtros, búsqueda, orden, página e incidente abierto se serializan en la barra
+de direcciones, y `popstate` los vuelve a leer:
+
+```
+?sev=critical,high&cat=ransomware&orden=severity:desc&inc=INC-2026-0231
+```
+
+En una herramienta de monitoreo eso no es un adorno. Un analista pega el enlace
+de "críticos sin resolver de ransomware" en el chat del turno, y recargar
+durante un incidente no puede costarle el contexto.
+
+Dos detalles que hacen la diferencia entre implementarlo y hacerlo bien:
+
+- **Todo va con `replaceState` menos abrir el panel**, que va con `pushState`.
+  Así teclear en la búsqueda no deja una entrada de historial por letra, pero
+  el botón "atrás" del navegador cierra el panel, que es lo que la gente
+  espera. Si se llegó directo con `?inc=…` no hay a dónde volver, y entonces
+  cerrar reemplaza la entrada en lugar de sacar al usuario del sitio.
+- **Todo lo que llega por la URL se valida contra el dominio.** La barra de
+  direcciones es editable: `?sev=inventada&p=-5` se descarta y cae a los
+  valores por defecto, en vez de propagar un tipo mentiroso a la aplicación.
+
+### Filtrar desde los gráficos
+
+Un clic en una barra filtra la tabla por esa categoría; un clic en un punto de
+la línea la filtra por ese día, marcado con una línea de referencia. Volver a
+pulsar deselecciona.
+
+![Tabla filtrada desde el gráfico de categorías](docs/filtro-desde-grafico.png)
+
+El flujo va **sólo en esa dirección**: el gráfico emite el filtro y nunca lo
+recibe. Los indicadores y ambos gráficos siempre describen los últimos 30 días
+completos, porque si también se recortaran sería imposible distinguir "bajaron
+los incidentes" de "filtré la vista".
+
+Hay un matiz de accesibilidad que obligó a rediseñar: **no se puede pulsar una
+barra con el teclado**. Si el gráfico fuera la única vía para filtrar por
+categoría, ese filtro sería inalcanzable sin ratón. Por eso la categoría tiene
+además un `<select>` nativo en la barra de filtros —llega por Tab, se abre con
+el teclado, lo anuncian los lectores de pantalla— y por eso es de selección
+única: así el gráfico y el selector muestran siempre lo mismo, sin estados
+intermedios que reconciliar. La severidad sigue siendo de selección múltiple,
+porque filtrar por "crítica y alta" a la vez sí es triaje corriente.
+
+### Modo en vivo
+
+Un interruptor en la cabecera hace entrar incidentes cada pocos segundos: la
+fila aparece arriba con un realce que se desvanece, el contador de abiertos
+sube y el último punto del gráfico se mueve. Los genera la misma función que
+creó el histórico, así que lo que entra se parece a lo que ya está en la tabla.
+
+Es un almacén observable fuera de React, consumido con `useSyncExternalStore`
+—el intervalo tiene que sobrevivir al montaje y desmontaje de cualquier
+componente— y lo difícil no es que los datos cambien, sino que cambien sin
+molestar: **el foco del teclado no se mueve**, la página mantiene sus 25 filas
+y el scroll no salta. Hay una comprobación dedicada a eso.
+
+**Arranca detenido a propósito.** El dataset base es determinista y de él
+dependen las capturas y las comprobaciones; si el flujo empezara solo, ninguna
+de las dos cosas sería reproducible. El modo en vivo es una capa opcional sobre
+un cimiento que no se mueve.
 
 ### El panel lateral es un `<dialog>` nativo
 
@@ -184,6 +241,12 @@ declara su `higherIsBetter`.
   `prefers-reduced-motion` global.
 - Los gráficos de Recharts son tabulables por su capa de accesibilidad, así que
   llevan `aria-label` propio; sin él anunciarían la concatenación de los ejes.
+- Todo filtro que se puede aplicar con el ratón se puede aplicar con el teclado:
+  la categoría tiene un `<select>` además del gráfico, y el día seleccionado
+  aparece como un chip que es un botón.
+- El interruptor del modo en vivo usa `aria-pressed`, y su latido va bajo
+  `motion-safe`: quien pida menos movimiento ve el punto fijo, que sigue
+  comunicando el estado.
 
 ## Los datos
 
