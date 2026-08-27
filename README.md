@@ -7,6 +7,8 @@ viene la tendencia y qué incidente conviene mirar ahora.
 Proyecto de portafolio, sin backend: los datos son un dataset mock generado de
 forma determinista.
 
+**[Ver la demo →](https://centinela-rho.vercel.app)**
+
 ![Vista principal en tema oscuro](docs/dashboard-oscuro.png)
 
 ---
@@ -54,7 +56,12 @@ Playwright instalado:
 npx playwright install chromium
 ```
 
-Con `npm run verify -- --shots` además regenera las capturas de `docs/`.
+Con `npm run verify -- --shots` además regenera las capturas de `docs/`, y con
+`BASE_URL` apunta a cualquier despliegue:
+
+```bash
+BASE_URL=https://centinela-rho.vercel.app npm run verify
+```
 
 ## Estructura
 
