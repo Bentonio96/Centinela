@@ -1,27 +1,62 @@
 /**
- * Estado de la vista de incidentes: búsqueda, filtro por severidad, orden,
- * paginación y selección.
+ * Estado de la vista de incidentes: búsqueda, filtros, orden, paginación y
+ * selección.
  *
- * El hook sólo coordina estado y memoiza; el filtrado y el orden viven en
- * `lib/filterIncidents.ts` como funciones puras.
+ * La fuente de verdad es la URL, no `useState`. El hook mantiene una copia en
+ * memoria para renderizar, pero cada cambio se refleja en la barra de
+ * direcciones, y `popstate` la vuelve a leer. Eso da tres cosas gratis:
+ * enlaces que se pueden compartir, recargas que no pierden el contexto y un
+ * botón "atrás" que hace lo que el usuario espera.
+ *
+ * El filtrado y el orden siguen viviendo en `lib/filterIncidents` como
+ * funciones puras; aquí sólo se coordina estado.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createSearchIndex, filterIncidents, sortIncidents } from '@/lib/filterIncidents';
-import type { Incident, Severity, SortableColumn, SortState } from '@/types';
+import { parseViewState, toUrl, type ViewState } from '@/lib/urlState';
+import type { Incident, IncidentCategory, Severity, SortableColumn } from '@/types';
 
 /** Filas por página. Suficiente para llenar una pantalla sin volverla infinita. */
 export const PAGE_SIZE = 25;
-
-/** Lo más reciente primero: es lo que un analista quiere ver al abrir el tablero. */
-const DEFAULT_SORT: SortState = { column: 'detectedAt', direction: 'desc' };
 
 /** Columnas donde el primer clic debe ordenar de mayor a menor. */
 const DESCENDING_FIRST: ReadonlySet<SortableColumn> = new Set<SortableColumn>([
   'detectedAt',
   'severity',
 ]);
+
+/**
+ * Cómo se escribe el cambio en el historial.
+ *
+ * Casi todo va con `replace`: teclear en la búsqueda no debe dejar una entrada
+ * por letra. Abrir el panel de detalle es la excepción y va con `push`, para
+ * que cerrarlo con el botón "atrás" del navegador funcione igual que con el
+ * botón de cerrar.
+ */
+type HistoryMode = 'replace' | 'push';
+
+interface Navigation {
+  readonly view: ViewState;
+  readonly mode: HistoryMode;
+}
+
+/** Marca las entradas de historial que creó el panel, para saber si hay a dónde volver. */
+const PANEL_ENTRY = { centinelaPanel: true };
+
+function isPanelEntry(state: unknown): boolean {
+  return (
+    typeof state === 'object' &&
+    state !== null &&
+    'centinelaPanel' in state &&
+    state.centinelaPanel === true
+  );
+}
+
+function currentUrl(): string {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
 
 export interface UseIncidentsResult {
   /** Incidentes de la página actual, ya filtrados y ordenados. */
@@ -33,12 +68,24 @@ export interface UseIncidentsResult {
 
   readonly search: string;
   readonly severities: readonly Severity[];
+  readonly category: IncidentCategory | null;
+  readonly day: string | null;
   readonly hasActiveFilters: boolean;
   readonly setSearch: (value: string) => void;
   readonly toggleSeverity: (severity: Severity) => void;
+  /**
+   * Reemplazan el filtro; `null` lo limpia.
+   *
+   * Son asignaciones y no conmutadores: el "volver a pulsar para quitar" es un
+   * gesto que sólo tiene sentido sobre un gráfico, así que vive en el gráfico.
+   * Aquí dejaría al `<select>` teniendo que simular una asignación con dos
+   * llamadas encadenadas.
+   */
+  readonly selectCategory: (category: IncidentCategory | null) => void;
+  readonly selectDay: (day: string | null) => void;
   readonly clearFilters: () => void;
 
-  readonly sort: SortState;
+  readonly sort: ViewState['sort'];
   readonly toggleSort: (column: SortableColumn) => void;
 
   readonly page: number;
@@ -51,101 +98,209 @@ export interface UseIncidentsResult {
 }
 
 export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
-  const [search, setSearchValue] = useState('');
-  const [severities, setSeverities] = useState<readonly Severity[]>([]);
-  const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
-  const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [navigation, setNavigation] = useState<Navigation>(() => ({
+    view: parseViewState(window.location.search),
+    mode: 'replace',
+  }));
+  const view = navigation.view;
+
+  /**
+   * Sincroniza la barra de direcciones con el estado.
+   *
+   * El efecto compara antes de escribir. Eso lo vuelve idempotente, que es lo
+   * que permite que el doble montaje de StrictMode no duplique entradas del
+   * historial, y que la vuelta desde `popstate` no reescriba la URL que acaba
+   * de restaurar el navegador.
+   */
+  useEffect(() => {
+    const url = toUrl(view);
+    if (url === currentUrl()) return;
+
+    if (navigation.mode === 'push') {
+      window.history.pushState(PANEL_ENTRY, '', url);
+    } else {
+      window.history.replaceState(window.history.state, '', url);
+    }
+  }, [view, navigation.mode]);
+
+  // El usuario navegó con los botones del navegador: la URL manda.
+  useEffect(() => {
+    const handlePopState = () => {
+      setNavigation({ view: parseViewState(window.location.search), mode: 'replace' });
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  const navigate = useCallback(
+    (update: (current: ViewState) => ViewState, mode: HistoryMode = 'replace') => {
+      setNavigation((current) => ({ view: update(current.view), mode }));
+    },
+    [],
+  );
+
+  /** Cualquier cambio de filtro devuelve el listado a la primera página. */
+  const filter = useCallback(
+    (update: (current: ViewState) => ViewState) => {
+      navigate((current) => ({ ...update(current), page: 1 }));
+    },
+    [navigate],
+  );
 
   // El índice de búsqueda depende sólo del dataset, no de lo que el usuario escriba.
   const searchIndex = useMemo(() => createSearchIndex(source), [source]);
 
   const filtered = useMemo(
-    () => filterIncidents(source, { search, severities }, searchIndex),
-    [source, search, severities, searchIndex],
+    () =>
+      filterIncidents(
+        source,
+        {
+          search: view.search,
+          severities: view.severities,
+          category: view.category,
+          day: view.day,
+        },
+        searchIndex,
+      ),
+    [source, view.search, view.severities, view.category, view.day, searchIndex],
   );
 
-  const sorted = useMemo(() => sortIncidents(filtered, sort), [filtered, sort]);
+  const sorted = useMemo(() => sortIncidents(filtered, view.sort), [filtered, view.sort]);
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  // Si los filtros redujeron el total, la página guardada puede haber quedado
+  // Si los filtros redujeron el total, la página de la URL puede haber quedado
   // fuera de rango. Se acota al renderizar en vez de con un efecto, para no
   // pintar nunca una página vacía.
-  const currentPage = Math.min(page, pageCount);
+  const currentPage = Math.min(view.page, pageCount);
 
   const incidents = useMemo(
     () => sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
     [sorted, currentPage],
   );
 
-  const setSearch = useCallback((value: string) => {
-    setSearchValue(value);
-    setPage(1);
-  }, []);
+  const setSearch = useCallback(
+    (value: string) => {
+      filter((current) => ({ ...current, search: value }));
+    },
+    [filter],
+  );
 
-  const toggleSeverity = useCallback((severity: Severity) => {
-    setSeverities((current) =>
-      current.includes(severity)
-        ? current.filter((value) => value !== severity)
-        : [...current, severity],
-    );
-    setPage(1);
-  }, []);
+  const toggleSeverity = useCallback(
+    (severity: Severity) => {
+      filter((current) => ({
+        ...current,
+        severities: current.severities.includes(severity)
+          ? current.severities.filter((value) => value !== severity)
+          : [...current.severities, severity],
+      }));
+    },
+    [filter],
+  );
+
+  const selectCategory = useCallback(
+    (category: IncidentCategory | null) => {
+      filter((current) => ({ ...current, category }));
+    },
+    [filter],
+  );
+
+  const selectDay = useCallback(
+    (day: string | null) => {
+      filter((current) => ({ ...current, day }));
+    },
+    [filter],
+  );
 
   const clearFilters = useCallback(() => {
-    setSearchValue('');
-    setSeverities([]);
-    setPage(1);
-  }, []);
+    filter((current) => ({
+      ...current,
+      search: '',
+      severities: [],
+      category: null,
+      day: null,
+    }));
+  }, [filter]);
 
   /**
    * Un clic en una columna nueva la ordena en su dirección natural; un clic en
    * la columna activa invierte la dirección.
    */
-  const toggleSort = useCallback((column: SortableColumn) => {
-    setSort((current) => {
-      if (current.column === column) {
-        return { column, direction: current.direction === 'asc' ? 'desc' : 'asc' };
-      }
-      return { column, direction: DESCENDING_FIRST.has(column) ? 'desc' : 'asc' };
-    });
-    setPage(1);
-  }, []);
-
-  const goToPage = useCallback((next: number) => {
-    setPage(Math.max(1, next));
-  }, []);
-
-  /**
-   * Se guarda el id y no el objeto: si el dataset cambiara, el panel abierto
-   * seguiría mostrando el incidente correcto en lugar de una copia obsoleta.
-   */
-  const selectedIncident = useMemo(
-    () => (selectedId === null ? null : (source.find((item) => item.id === selectedId) ?? null)),
-    [source, selectedId],
+  const toggleSort = useCallback(
+    (column: SortableColumn) => {
+      filter((current) => ({
+        ...current,
+        sort:
+          current.sort.column === column
+            ? { column, direction: current.sort.direction === 'asc' ? 'desc' : 'asc' }
+            : { column, direction: DESCENDING_FIRST.has(column) ? 'desc' : 'asc' },
+      }));
+    },
+    [filter],
   );
 
-  const selectIncident = useCallback((incident: Incident) => {
-    setSelectedId(incident.id);
-  }, []);
+  const goToPage = useCallback(
+    (next: number) => {
+      navigate((current) => ({ ...current, page: Math.max(1, next) }));
+    },
+    [navigate],
+  );
+
+  /**
+   * Se guarda el id y no el objeto: si el dataset cambia —y con el modo en vivo
+   * cambia— el panel abierto sigue mostrando el incidente correcto en lugar de
+   * una copia congelada.
+   */
+  const selectedIncident = useMemo(
+    () =>
+      view.selectedId === null
+        ? null
+        : (source.find((item) => item.id === view.selectedId) ?? null),
+    [source, view.selectedId],
+  );
+
+  const selectIncident = useCallback(
+    (incident: Incident) => {
+      navigate((current) => ({ ...current, selectedId: incident.id }), 'push');
+    },
+    [navigate],
+  );
 
   const closeIncident = useCallback(() => {
-    setSelectedId(null);
-  }, []);
+    // Si el panel se abrió empujando una entrada, cerrarlo es volver atrás: así
+    // el botón de cerrar y el gesto del navegador terminan en el mismo sitio.
+    // Si en cambio se llegó directo con `?inc=…`, no hay a dónde volver y se
+    // reemplaza la entrada actual para no sacar al usuario del sitio.
+    if (isPanelEntry(window.history.state)) {
+      window.history.back();
+    } else {
+      navigate((current) => ({ ...current, selectedId: null }));
+    }
+  }, [navigate]);
 
   return {
     incidents,
     filteredCount: sorted.length,
     totalCount: source.length,
 
-    search,
-    severities,
-    hasActiveFilters: search.trim().length > 0 || severities.length > 0,
+    search: view.search,
+    severities: view.severities,
+    category: view.category,
+    day: view.day,
+    hasActiveFilters:
+      view.search.trim() !== '' ||
+      view.severities.length > 0 ||
+      view.category !== null ||
+      view.day !== null,
     setSearch,
     toggleSeverity,
+    selectCategory,
+    selectDay,
     clearFilters,
 
-    sort,
+    sort: view.sort,
     toggleSort,
 
     page: currentPage,

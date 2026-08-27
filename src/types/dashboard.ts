@@ -19,11 +19,24 @@ export interface SortState {
 
 /**
  * Estado de filtrado de la tabla.
- * `severities` vacío significa "sin filtro", no "ninguna severidad".
+ *
+ * Una lista vacía significa "sin filtro", no "ninguna": es la distinción que
+ * permite que el estado por defecto no tenga que enumerar todos los valores.
  */
 export interface IncidentFilters {
   readonly search: string;
   readonly severities: readonly Severity[];
+  /**
+   * Emitida al hacer clic en una barra del gráfico o elegida en el selector.
+   *
+   * Es de selección única, a diferencia de la severidad: filtrar por "crítica
+   * y alta" a la vez es triaje corriente, filtrar por "malware y DDoS" a la vez
+   * casi nunca lo es. Mantenerla única deja que el gráfico y el selector
+   * muestren siempre lo mismo, sin estados intermedios que reconciliar.
+   */
+  readonly category: IncidentCategory | null;
+  /** Día concreto `YYYY-MM-DD`, emitido al hacer clic en el gráfico de línea. */
+  readonly day: string | null;
 }
 
 /**

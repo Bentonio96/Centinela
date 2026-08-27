@@ -7,6 +7,7 @@
 
 import type { Incident, IncidentFilters, SortState } from '@/types';
 import { CATEGORY_META, SEVERITY_META, STATUS_META } from './catalog';
+import { toLocalDateKey } from './format';
 
 /**
  * Normaliza para comparar: sin acentos, en minúsculas.
@@ -47,8 +48,8 @@ export function createSearchIndex(incidents: readonly Incident[]): ReadonlyMap<s
 }
 
 /**
- * Aplica búsqueda y filtro de severidad.
- * Una lista de severidades vacía significa "sin filtro", no "ninguna".
+ * Aplica la búsqueda y los filtros de severidad, categoría y día.
+ * Una lista vacía significa "sin filtro", no "ninguna".
  */
 export function filterIncidents(
   incidents: readonly Incident[],
@@ -62,6 +63,16 @@ export function filterIncidents(
 
   return incidents.filter((incident) => {
     if (severities.size > 0 && !severities.has(incident.severity)) {
+      return false;
+    }
+
+    if (filters.category !== null && incident.category !== filters.category) {
+      return false;
+    }
+
+    // El día se compara en hora local, igual que se agrupa en el gráfico: si no,
+    // un incidente de las 23:00 caería en el punto del día siguiente.
+    if (filters.day !== null && toLocalDateKey(new Date(incident.detectedAt)) !== filters.day) {
       return false;
     }
 
