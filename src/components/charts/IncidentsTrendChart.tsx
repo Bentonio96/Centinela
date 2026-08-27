@@ -3,12 +3,17 @@
  *
  * Dos series: el total y el subconjunto de críticos. El total solo diría
  * cuánto ruido hubo; superponer los críticos muestra si ese ruido importaba.
+ *
+ * Al hacer clic en un día, ese día pasa a filtrar la tabla y queda marcado con
+ * una línea de referencia; volver a pulsarlo lo quita. El gráfico emite el
+ * filtro y nunca lo recibe: los indicadores siguen describiendo los 30 días.
  */
 
 import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -32,9 +37,38 @@ const AXIS_TICK = { fill: 'var(--text-muted)', fontSize: 11 } as const;
 
 interface IncidentsTrendChartProps {
   readonly data: readonly TrendPoint[];
+  /** Día que ya está filtrando, en formato `YYYY-MM-DD`. */
+  readonly activeDay: string | null;
+  readonly onSelectDay: (day: string | null) => void;
 }
 
-export function IncidentsTrendChart({ data }: IncidentsTrendChartProps) {
+export function IncidentsTrendChart({ data, activeDay, onSelectDay }: IncidentsTrendChartProps) {
+  /**
+   * Recharts entrega el índice del punto bajo el cursor. Resolver la fecha
+   * desde el array propio evita depender de la forma de su payload interno.
+   *
+   * El índice llega como `number | string | null`, así que se normaliza y se
+   * descarta todo lo que no sea una posición válida.
+   */
+  const handleChartClick = (chartState: {
+    // El `| undefined` explícito hace falta con `exactOptionalPropertyTypes`.
+    readonly activeTooltipIndex?: number | string | null | undefined;
+  }) => {
+    const raw = chartState.activeTooltipIndex;
+    if (raw === null || raw === undefined) return;
+
+    const index = Number(raw);
+    if (!Number.isInteger(index) || index < 0) return;
+
+    const point = data[index];
+    if (point === undefined) return;
+
+    // Pulsar el día ya activo lo deselecciona.
+    onSelectDay(point.date === activeDay ? null : point.date);
+  };
+
+  const activePoint = activeDay === null ? undefined : data.find((point) => point.date === activeDay);
+
   return (
     <ChartCard
       title="Incidentes por día"
@@ -48,7 +82,9 @@ export function IncidentsTrendChart({ data }: IncidentsTrendChartProps) {
           margin={{ top: 4, right: 12, bottom: 0, left: -18 }}
           // Recharts hace el gráfico tabulable para poder recorrerlo con las
           // flechas; sin nombre anunciaría la concatenación de los ejes.
-          aria-label="Gráfico de línea: incidentes detectados por día en los últimos 30 días"
+          aria-label="Gráfico de línea: incidentes detectados por día en los últimos 30 días. Pulse un día para filtrar la tabla."
+          onClick={handleChartClick}
+          className="cursor-pointer"
         >
           {/* Sólo líneas horizontales: las verticales en 30 puntos serían una reja. */}
           <CartesianGrid vertical={false} stroke="var(--border-subtle)" strokeDasharray="3 3" />
@@ -72,6 +108,14 @@ export function IncidentsTrendChart({ data }: IncidentsTrendChartProps) {
             content={<ChartTooltip />}
             cursor={{ stroke: 'var(--border-strong)', strokeWidth: 1 }}
           />
+          {activePoint !== undefined && (
+            <ReferenceLine
+              x={activePoint.label}
+              stroke="var(--accent)"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+            />
+          )}
           <Line
             type="monotone"
             dataKey="total"

@@ -17,6 +17,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { TABLE_BREAKPOINT, useMediaQuery } from '@/hooks/useMediaQuery';
 import type { UseIncidentsResult } from '@/hooks/useIncidents';
 import { formatNumber } from '@/lib/format';
+import { ActiveFilters } from './ActiveFilters';
 import { IncidentCardList } from './IncidentCardList';
 import { IncidentFilters } from './IncidentFilters';
 import { IncidentsTable } from './IncidentsTable';
@@ -24,9 +25,11 @@ import { IncidentsTable } from './IncidentsTable';
 interface IncidentsPanelProps {
   /** Estado completo de la vista, tal como lo devuelve `useIncidents`. */
   readonly state: UseIncidentsResult;
+  /** Incidentes llegados hace poco por el flujo en vivo. */
+  readonly recentIds: readonly string[];
 }
 
-export function IncidentsPanel({ state }: IncidentsPanelProps) {
+export function IncidentsPanel({ state, recentIds }: IncidentsPanelProps) {
   const isWideEnoughForTable = useMediaQuery(TABLE_BREAKPOINT);
   const isEmpty = state.incidents.length === 0;
 
@@ -57,15 +60,19 @@ export function IncidentsPanel({ state }: IncidentsPanelProps) {
         onSearchChange={state.setSearch}
         severities={state.severities}
         onToggleSeverity={state.toggleSeverity}
+        category={state.category}
+        onSelectCategory={state.selectCategory}
         hasActiveFilters={state.hasActiveFilters}
         onClearFilters={state.clearFilters}
       />
+
+      <ActiveFilters day={state.day} onClearDay={() => state.selectDay(null)} />
 
       {isEmpty ? (
         <EmptyState
           icon={SearchX}
           title="Ningún incidente coincide"
-          description="Ajusta la búsqueda o quita algún filtro de severidad para ampliar el resultado."
+          description="Ajusta la búsqueda o quita algún filtro para ampliar el resultado."
           action={
             state.hasActiveFilters ? (
               <Button size="sm" onClick={state.clearFilters}>
@@ -81,12 +88,14 @@ export function IncidentsPanel({ state }: IncidentsPanelProps) {
           onToggleSort={state.toggleSort}
           selectedId={state.selectedIncident?.id ?? null}
           onSelect={state.selectIncident}
+          recentIds={recentIds}
         />
       ) : (
         <IncidentCardList
           incidents={state.incidents}
           selectedId={state.selectedIncident?.id ?? null}
           onSelect={state.selectIncident}
+          recentIds={recentIds}
         />
       )}
 

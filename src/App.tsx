@@ -1,10 +1,11 @@
 /**
  * Composición del dashboard.
  *
- * El componente no calcula nada por su cuenta: reúne el estado de la vista
- * (`useIncidents`), las series derivadas (`lib/metrics`) y los bloques que las
- * pintan. Toda la lógica vive en hooks y funciones puras, que es lo que hace
- * posible probarlas sin montar la aplicación.
+ * El componente no calcula nada por su cuenta: reúne la fuente de datos
+ * (`useLiveFeed`), el estado de la vista (`useIncidents`), las series derivadas
+ * (`lib/metrics`) y los bloques que las pintan. Toda la lógica vive en hooks y
+ * funciones puras, que es lo que hace posible probarlas sin montar la
+ * aplicación.
  */
 
 import { useMemo } from 'react';
@@ -15,21 +16,25 @@ import { IncidentDetailPanel } from '@/components/incidents/IncidentDetailPanel'
 import { IncidentsPanel } from '@/components/incidents/IncidentsPanel';
 import { MetricsGrid } from '@/components/incidents/MetricsGrid';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { GENERATED_AT, INCIDENTS } from '@/data/incidents';
 import { useIncidents } from '@/hooks/useIncidents';
+import { useLiveFeed } from '@/hooks/useLiveFeed';
 import { useTheme } from '@/hooks/useTheme';
 import { formatDateTime } from '@/lib/format';
 import { buildCategorySeries, buildTrendSeries, computeMetrics } from '@/lib/metrics';
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
-  const state = useIncidents(INCIDENTS);
 
-  const now = GENERATED_AT;
+  // Con el flujo detenido esto es el dataset determinista de siempre; activo,
+  // la misma lista con los incidentes que van entrando al principio.
+  const feed = useLiveFeed();
+  const { incidents, now } = feed;
 
-  const metrics = useMemo(() => computeMetrics(INCIDENTS, now), [now]);
-  const trend = useMemo(() => buildTrendSeries(INCIDENTS, now), [now]);
-  const categories = useMemo(() => buildCategorySeries(INCIDENTS, now), [now]);
+  const state = useIncidents(incidents);
+
+  const metrics = useMemo(() => computeMetrics(incidents, now), [incidents, now]);
+  const trend = useMemo(() => buildTrendSeries(incidents, now), [incidents, now]);
+  const categories = useMemo(() => buildCategorySeries(incidents, now), [incidents, now]);
 
   return (
     <div className="min-h-dvh bg-surface-base">
@@ -44,6 +49,8 @@ export default function App() {
         theme={theme}
         onToggleTheme={toggleTheme}
         updatedAt={formatDateTime(new Date(now).toISOString())}
+        live={feed.running}
+        onToggleLive={feed.toggle}
       />
 
       <main
@@ -53,11 +60,15 @@ export default function App() {
         <MetricsGrid metrics={metrics} />
 
         <div className="grid gap-gutter-sm lg:grid-cols-2">
-          <IncidentsTrendChart data={trend} />
-          <IncidentsByCategoryChart data={categories} />
+          <IncidentsTrendChart data={trend} activeDay={state.day} onSelectDay={state.selectDay} />
+          <IncidentsByCategoryChart
+            data={categories}
+            activeCategory={state.category}
+            onSelectCategory={state.selectCategory}
+          />
         </div>
 
-        <IncidentsPanel state={state} />
+        <IncidentsPanel state={state} recentIds={feed.recentIds} />
       </main>
 
       <IncidentDetailPanel incident={state.selectedIncident} onClose={state.closeIncident} />
