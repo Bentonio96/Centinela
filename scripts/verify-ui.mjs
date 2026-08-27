@@ -299,7 +299,213 @@ check('al detener se apaga el resalte', await highlighted(), 0)
 await page.waitForTimeout(5000)
 check('detenido, el total se congela', await totalText(), totalAfterStop)
 
+// ---------------------------------------------------------------------------
+// Las tarjetas de indicador como filtro
+// ---------------------------------------------------------------------------
+await page.goto(BASE, { waitUntil: 'networkidle' })
+await page.waitForTimeout(900)
+
+const metricValue = (label) =>
+  page.locator('main article').filter({ hasText: label }).locator('p').first().innerText()
+
+const criticalCard = page.getByRole('button', { name: /críticos sin resolver/ })
+const criticalValue = await metricValue('Críticos sin resolver')
+
+await criticalCard.click()
+await page.waitForTimeout(500)
+check('la tarjeta filtra: url', path(), `/?sev=critical&estado=open%2Cinvestigating%2Ccontained`)
+check('la tarjeta filtra: aria-pressed', await criticalCard.getAttribute('aria-pressed'), 'true')
+// La cifra de la tarjeta y la de la tabla tienen que ser la misma: si no, el
+// indicador y su filtro estarian midiendo cosas distintas.
+check('la tarjeta filtra: el recuento coincide con la cifra',
+  (await totalText()).startsWith(criticalValue), true)
+check('la tarjeta filtra: ninguna fila resuelta',
+  (await page.locator('tbody tr').allInnerTexts()).some((r) => r.includes('Resuelto')), false)
+check('la tarjeta filtra: aparece el chip de estado',
+  await page.getByRole('button', { name: 'Quitar filtro: Sin resolver' }).isVisible(), true)
+
+await page.getByRole('button', { name: 'Quitar filtro: Sin resolver' }).click()
+await page.waitForTimeout(400)
+check('el chip quita el estado', path(), '/?sev=critical')
+check('la tarjeta deja de estar activa', await criticalCard.getAttribute('aria-pressed'), 'false')
+
+// El tiempo medio de resolucion es un promedio, no un conjunto: no es un boton.
+check('el promedio no es accionable', await page.evaluate(() => {
+  const card = [...document.querySelectorAll('main article')]
+    .find((c) => c.textContent?.includes('Tiempo medio'))
+  return card?.querySelector('button') === null
+}), true)
+
+check('cada indicador dibuja su curva',
+  await page.locator('main article svg[aria-hidden="true"]').count() >= 4, true)
+
+// ---------------------------------------------------------------------------
+// Atajos de teclado
+// ---------------------------------------------------------------------------
+await page.goto(BASE, { waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+
+await page.locator('body').click({ position: { x: 5, y: 400 } })
+await page.keyboard.press('/')
+await page.waitForTimeout(250)
+check('"/" enfoca la busqueda',
+  await page.evaluate(() => document.activeElement?.getAttribute('type')), 'search')
+
+// Escribiendo dentro de un campo, la barra es una barra y no un atajo.
+await page.locator('#filtro-categoria').focus()
+await page.keyboard.press('/')
+await page.waitForTimeout(200)
+check('"/" no roba el foco mientras se escribe',
+  await page.evaluate(() => document.activeElement?.id), 'filtro-categoria')
+
+// ---------------------------------------------------------------------------
+// Recorrer incidentes desde el panel
+// ---------------------------------------------------------------------------
+await page.goto(BASE, { waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+
+const panelId = () => page.locator('dialog[open] .font-mono').first().innerText()
+
+await page.locator('tbody tr button[aria-label^="Ver detalle"]').first().click()
+await page.waitForTimeout(500)
+const firstPanelId = await panelId()
+check('en el primero, "anterior" esta desactivado',
+  await page.getByRole('button', { name: 'Incidente anterior' }).isDisabled(), true)
+
+await page.keyboard.press('ArrowRight')
+await page.waitForTimeout(400)
+const secondPanelId = await panelId()
+check('la flecha derecha avanza', secondPanelId !== firstPanelId, true)
+check('el panel sigue abierto al avanzar', await page.locator('dialog[open]').count(), 1)
+
+await page.keyboard.press('ArrowLeft')
+await page.waitForTimeout(400)
+check('la flecha izquierda vuelve', await panelId(), firstPanelId)
+
+// Recorrer no debe dejar una entrada de historial por incidente: un solo
+// "atras" tiene que cerrar el panel.
+await page.keyboard.press('ArrowRight')
+await page.waitForTimeout(400)
+await page.goBack()
+await page.waitForTimeout(600)
+check('un solo "atras" cierra el panel tras recorrerlo',
+  await page.locator('dialog[open]').count(), 0)
+
+// ---------------------------------------------------------------------------
+// Copiar el enlace de la vista
+// ---------------------------------------------------------------------------
+await page.goto(`${BASE}/?sev=critical`, { waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+await page.getByRole('button', { name: /Copiar enlace/ }).click()
+await page.waitForTimeout(300)
+// El resultado depende de los permisos del portapapeles; lo que se comprueba es
+// que el boton responda, no que el navegador de permiso.
+check('copiar enlace responde',
+  /Copiado|No se pudo/.test(await page.locator('button[title^="Copiar el enlace"]').innerText()), true)
+
 check('sin errores de consola', errors, [])
+
+// ---------------------------------------------------------------------------
+// Contraste real de los grises secundarios
+// ---------------------------------------------------------------------------
+// El tema claro se derivo del oscuro por simetria y `--text-muted` acabo en
+// 3.76:1 sobre la cabecera de la tabla, por debajo del 4.5:1 que pide AA para
+// texto de 12px. Es justamente el tipo de fallo que no se ve mirando: el gris
+// "parece" bien. Se mide en el navegador, con los colores ya resueltos, para
+// que un retoque futuro de la paleta no lo reintroduzca en silencio.
+async function contrastReport(theme) {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const p = await ctx.newPage()
+  await p.goto(BASE, { waitUntil: 'networkidle' })
+  if (theme === 'light') {
+    await p.getByRole('button', { name: 'Cambiar a tema claro' }).click()
+    await p.waitForTimeout(400)
+  }
+
+  const report = await p.evaluate(() => {
+    const probe = document.createElement('span')
+    document.body.append(probe)
+
+    // La paleta esta escrita en `oklch`, y `getComputedStyle` la devuelve tal
+    // cual, sin convertir. Pintar el color en un canvas de un pixel y leer ese
+    // pixel delega la conversion a sRGB en el propio navegador, que es quien
+    // sabe hacerla bien; parsear el `oklch()` a mano seria reimplementar la
+    // conversion y equivocarse en ella.
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+    const surface = canvas.getContext('2d')
+
+    const resolve = (token) => {
+      probe.style.color = `var(${token})`
+      surface.clearRect(0, 0, 1, 1)
+      surface.fillStyle = getComputedStyle(probe).color
+      surface.fillRect(0, 0, 1, 1)
+      const [r, g, b] = surface.getImageData(0, 0, 1, 1).data
+      return [r, g, b]
+    }
+
+    const channel = (v) => {
+      const c = v / 255
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+    }
+    const luminance = ([r, g, b]) =>
+      0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+    const ratio = (a, b) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+      return (hi + 0.05) / (lo + 0.05)
+    }
+
+    const pairs = [
+      ['--text-muted', '--surface-sunken'],
+      ['--text-muted', '--surface-base'],
+      ['--text-muted', '--surface-raised'],
+      ['--text-secondary', '--surface-raised'],
+    ]
+    const out = pairs.map(([fg, bg]) => ({
+      pair: `${fg} / ${bg}`,
+      ratio: Number(ratio(resolve(fg), resolve(bg)).toFixed(2)),
+    }))
+    probe.remove()
+    return out
+  })
+
+  await ctx.close()
+  return report
+}
+
+for (const theme of ['dark', 'light']) {
+  const report = await contrastReport(theme)
+  const worst = report.reduce((a, b) => (a.ratio < b.ratio ? a : b))
+  check(`contraste AA en tema ${theme} (peor: ${worst.pair} = ${worst.ratio})`, worst.ratio >= 4.5, true)
+}
+
+// ---------------------------------------------------------------------------
+// Movimiento reducido
+// ---------------------------------------------------------------------------
+// Con `prefers-reduced-motion` el contador no debe recorrer la distancia: tiene
+// que estar en su valor final desde el primer pintado. El CSS no puede
+// arreglarlo solo, porque el numero lo interpola JavaScript.
+const still = await browser.newContext({
+  viewport: { width: 1280, height: 800 },
+  reducedMotion: 'reduce',
+})
+const stillPage = await still.newPage()
+await stillPage.goto(BASE, { waitUntil: 'networkidle' })
+// Deliberadamente corto: menos de lo que duraria la animacion del contador.
+await stillPage.waitForTimeout(150)
+const stillValue = await stillPage
+  .locator('main article')
+  .filter({ hasText: 'Críticos sin resolver' })
+  .locator('p')
+  .first()
+  .innerText()
+check('sin movimiento, el contador ya esta en su valor', /^\d+$/.test(stillValue), true)
+check('sin movimiento, los bloques son visibles', await stillPage.evaluate(() => {
+  const card = document.querySelector('main article')
+  return card !== null && Number(getComputedStyle(card.parentElement).opacity) === 1
+}), true)
+await still.close()
 
 // ---------------------------------------------------------------------------
 // Capturas del README (sólo con --shots)
@@ -346,6 +552,13 @@ await freshShot('estado-vacio', async (p) => {
   await p.getByRole('searchbox', { name: 'Buscar incidentes' }).fill('zzzznoexiste')
   await p.waitForTimeout(400)
 })
+
+  // La tarjeta de indicador como filtro: la cifra de arriba y el recuento de
+  // la tabla tienen que verse iguales en la misma captura.
+  await freshShot('filtro-desde-indicador', async (p) => {
+    await p.getByRole('button', { name: /críticos sin resolver/ }).click()
+    await p.waitForTimeout(700)
+  })
 
   await freshShot('filtro-desde-grafico', async (p) => {
     const bar = p.locator('.recharts-surface').nth(1).locator('.recharts-bar-rectangle').nth(2)

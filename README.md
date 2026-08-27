@@ -100,6 +100,26 @@ tokens están en [`src/index.css`](src/index.css), en dos bloques:
 
 No hay un solo color escrito a mano en un componente.
 
+### El vidrio y la luz salen de tokens, no de valores sueltos
+
+Las superficies son translúcidas con desenfoque de lo que hay detrás, y detrás
+hay tres focos de luz fijos —`--ambient-1..3`— anclados al viewport. Si el
+fondo scrollease, el degradado se leería como contenido en movimiento en vez de
+como iluminación de la escena.
+
+El detalle que más cambia la percepción es el más pequeño: un filo de 1px en el
+borde superior de cada tarjeta, con degradado, que simula la luz cayendo desde
+arriba. Se dibuja con una máscara que vacía el relleno y deja sólo el contorno,
+porque así el degradado sigue el radio de las esquinas en lugar de cortarse en
+recto.
+
+Los degradados están **atados a un significado**, no puestos por decorar: el
+halo de cada indicador lleva el color de lo que mide, el relleno bajo las áreas
+se desvanece para que dos series superpuestas no formen un bloque opaco, y el
+de las barras da al extremo un borde suave que evita que ocho longitudes
+distintas se lean como un macizo de color. La regla que los mantiene a raya es
+esa: si un degradado no comunica nada, no entra.
+
 ### Oscuro por defecto, sin destello
 
 Los tokens oscuros viven en `:root` y el tema claro es un override con la clase
@@ -108,6 +128,20 @@ ya se ve como debe verse. Un script mínimo en `index.html` aplica `.light`
 antes del primer pintado para quien haya elegido el tema claro.
 
 ![Vista principal en tema claro](docs/dashboard-claro.png)
+
+### El contraste se mide, no se estima
+
+El tema claro se había derivado del oscuro por simetría, y ahí se coló un fallo
+que no se ve mirando: `--text-muted` quedaba en **3.76:1** sobre la cabecera de
+la tabla, por debajo del 4.5:1 que pide WCAG AA para texto de 12px. Y ese gris
+no está en adornos — son los encabezados de columna, las marcas de tiempo y la
+comparación de cada indicador.
+
+Ahora se mide en el navegador dentro de la suite de verificación, con los
+colores ya resueltos, en ambos temas. La paleta está escrita en `oklch` y
+`getComputedStyle` la devuelve sin convertir, así que la conversión a sRGB se
+delega en el propio navegador pintando el color en un canvas de un píxel: la
+alternativa era reimplementar la conversión a mano y equivocarse en ella.
 
 ### La severidad nunca depende sólo del color
 
@@ -154,6 +188,10 @@ Dos detalles que hacen la diferencia entre implementarlo y hacerlo bien:
   direcciones es editable: `?sev=inventada&p=-5` se descarta y cae a los
   valores por defecto, en vez de propagar un tipo mentiroso a la aplicación.
 
+Como todo eso es invisible para quien abre el tablero por primera vez, hay un
+botón **"Copiar enlace"** junto a los filtros. Sin él, nadie tiene motivo para
+mirar la barra de direcciones y descubrir que la vista se puede compartir.
+
 ### Filtrar desde los gráficos
 
 Un clic en una barra filtra la tabla por esa categoría; un clic en un punto de
@@ -176,6 +214,34 @@ el teclado, lo anuncian los lectores de pantalla— y por eso es de selección
 intermedios que reconciliar. La severidad sigue siendo de selección múltiple,
 porque filtrar por "crítica y alta" a la vez sí es triaje corriente.
 
+### Los indicadores son el filtro más directo
+
+Pulsar una tarjeta recorta la tabla a lo que esa tarjeta cuenta. Eran la pieza
+más visible del tablero y la única inerte: se leía "5 críticos sin resolver" y
+no había forma de preguntar cuáles.
+
+![Tabla filtrada desde una tarjeta de indicador](docs/filtro-desde-indicador.png)
+
+Tres cosas que esto obligó a resolver:
+
+- **Hacía falta un filtro por estado**, que no existía. Es de selección
+  múltiple porque el caso que importa —"sin resolver"— son tres estados a la
+  vez, no uno. No tiene control propio en la barra: se activa desde las
+  tarjetas, que son botones y por tanto alcanzables con el teclado, y se quita
+  desde su chip.
+- **El conjunto reemplaza, no combina.** Pulsar "Críticos sin resolver" lleva
+  exactamente a esos, no a esos intersecados con lo que quedara de una búsqueda
+  anterior.
+- **El tiempo medio de resolución no es un botón.** Es un promedio, no un
+  conjunto de incidentes, y su recorte natural —"resueltos"— ya lo abre la
+  tarjeta de al lado. Dos botones que llevan al mismo sitio no son un atajo,
+  son una duda.
+
+Cada tarjeta lleva además la curva de su propia métrica en los 30 días. Un
+"+67 %" da la dirección pero no la forma: no distingue una subida sostenida
+durante un mes de un pico de ayer sobre un mes plano. Son la misma cifra y no
+significan lo mismo.
+
 ### Modo en vivo
 
 Un interruptor en la cabecera hace entrar incidentes cada pocos segundos: la
@@ -193,6 +259,39 @@ y el scroll no salta. Hay una comprobación dedicada a eso.
 dependen las capturas y las comprobaciones; si el flujo empezara solo, ninguna
 de las dos cosas sería reproducible. El modo en vivo es una capa opcional sobre
 un cimiento que no se mueve.
+
+Con el flujo activo, la fila que entra lo hace con un barrido de luz que corre
+una sola vez. Sólo se anima la llegada, no cada repintado: filtrar reordena las
+25 filas, y animarlas todas convertiría cada pulsación en un espectáculo.
+
+### Los avisos flotantes son sólo para lo crítico
+
+Y esa restricción es la decisión entera. Un aviso por cada incidente convierte
+la esquina de la pantalla en una cascada que se aprende a ignorar en treinta
+segundos, y a partir de ahí el aviso no avisa de nada. Limitado a la severidad
+que obliga a interrumpir lo que estabas haciendo, que aparezca uno vuelve a
+significar algo.
+
+Se anuncian con `role="status"`, que es cortés: espera a que el lector de
+pantalla termine la frase en curso. `assertive` interrumpiría a media palabra a
+alguien que está leyendo una fila, y el aviso no es una alarma de evacuación —
+el incidente ya está en la tabla y en los indicadores; aquí sólo se adelanta.
+
+### El movimiento se puede apagar entero
+
+Todo lo que se mueve está bajo `motion-safe` o dentro del bloque global de
+`prefers-reduced-motion`. Dos casos no se arreglan solos con CSS y se resuelven
+en el código:
+
+- **El contador de los indicadores** lo interpola JavaScript, así que con
+  movimiento reducido devuelve el valor final directamente, sin un solo
+  fotograma intermedio. Un número cambiando es justamente el tipo de movimiento
+  que molesta.
+- **Las animaciones de Recharts** también las calcula JavaScript y no las
+  alcanza ninguna regla de estilo: se apagan pasando `isAnimationActive`.
+
+La suite lo comprueba cargando la página con `reducedMotion: 'reduce'` y
+leyendo la cifra antes de que la animación hubiera terminado de existir.
 
 ### El panel lateral es un `<dialog>` nativo
 
@@ -247,6 +346,17 @@ declara su `higherIsBetter`.
 - El interruptor del modo en vivo usa `aria-pressed`, y su latido va bajo
   `motion-safe`: quien pida menos movimiento ve el punto fijo, que sigue
   comunicando el estado.
+- Las tarjetas de indicador son botones con `aria-pressed`, así que el filtro
+  por estado tiene una ruta de teclado aunque no tenga control en la barra.
+- El contraste de los grises secundarios se **mide** en la suite, en ambos
+  temas, contra las tres superficies. Peor caso actual: 4.62:1.
+- Atajos: `/` enfoca la búsqueda —y no se dispara mientras se escribe en un
+  campo—; ← y → recorren incidentes dentro del panel sin cerrarlo. Los botones
+  de anterior y siguiente existen además del atajo: un atajo que no está
+  dibujado en ninguna parte no lo descubre nadie.
+- Recorrer el panel con las flechas usa `replaceState`, no `pushState`: ver diez
+  incidentes seguidos no debe dejar diez entradas que haya que deshacer una por
+  una para cerrarlo.
 
 ## Los datos
 
@@ -269,8 +379,15 @@ reflejan sólo el flujo real de entradas y cierres.
 ## Tipado
 
 `strict` (ya es el default en TypeScript 6) más `noUncheckedIndexedAccess`,
-`exactOptionalPropertyTypes` y `noImplicitOverride`. Sin `any` y sin
-aserciones de tipo en todo el proyecto.
+`exactOptionalPropertyTypes` y `noImplicitOverride`. Sin `any` en todo el
+proyecto.
+
+Hay **una** aserción de tipo, en `lib/cssVars.ts`. `CSSProperties` de React
+sólo declara propiedades conocidas, así que pasar `--rise-delay` como estilo en
+línea no tiene forma de tipificarse. Está aislada en una función de tres líneas
+cuya firma exige el prefijo `--`, en lugar de repartir `as CSSProperties` por
+los componentes: la conversión es correcta —React escribe cualquier clave que
+empiece por `--` tal cual en el nodo— y así hay un solo sitio donde mirar.
 
 Los identificadores del código están en inglés (`severity`, `critical`) y el
 texto visible en español. Las etiquetas viven sólo en `lib/catalog.ts`, así la
@@ -282,10 +399,16 @@ El build separa las dependencias en tres chunks para que el navegador conserve
 en caché lo que no cambia entre despliegues:
 
 ```
-index    48 kB  │ gzip:  15 kB   ← la aplicación
-react   190 kB  │ gzip:  60 kB
-vendor  378 kB  │ gzip: 109 kB   ← Recharts y sus dependencias
+index     70 kB  │ gzip:  22 kB   ← la aplicación
+react    190 kB  │ gzip:  60 kB
+vendor   384 kB  │ gzip: 111 kB   ← Recharts y sus dependencias
+css       45 kB  │ gzip:   8 kB
 ```
+
+Toda la capa visual —vidrio, halos, degradados, contador animado, foco que
+sigue al cursor, avisos flotantes— está escrita a mano. Una librería de
+animación habría costado unos 34 kB comprimidos para hacer lo que aquí hacen
+CSS y un `requestAnimationFrame`.
 
 ## Deploy en Vercel
 
