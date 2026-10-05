@@ -13,7 +13,7 @@ import { toLocalDateKey } from './format';
  * Normaliza para comparar: sin acentos, en minúsculas.
  * Así "critica" encuentra "Crítica" y "ingenieria" encuentra "Ingeniería".
  */
-function normalize(text: string): string {
+export function normalize(text: string): string {
   return text
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/gu, '')
@@ -48,7 +48,8 @@ export function createSearchIndex(incidents: readonly Incident[]): ReadonlyMap<s
 }
 
 /**
- * Aplica la búsqueda y los filtros de severidad, estado, categoría y día.
+ * Aplica la búsqueda y los filtros de severidad, estado, categoría, responsable
+ * y día.
  * Una lista vacía significa "sin filtro", no "ninguna".
  */
 export function filterIncidents(
@@ -72,6 +73,10 @@ export function filterIncidents(
     }
 
     if (filters.category !== null && incident.category !== filters.category) {
+      return false;
+    }
+
+    if (filters.assignee !== null && incident.assignee !== filters.assignee) {
       return false;
     }
 

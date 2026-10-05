@@ -7,8 +7,10 @@
 
 const LOCALE = 'es-CL';
 
+// `day: 'numeric'` y no `'2-digit'`: con dos dígitos, es-CL separa el día del
+// mes con un guion ("05-sept") en vez de un espacio.
 const dateTimeFormatter = new Intl.DateTimeFormat(LOCALE, {
-  day: '2-digit',
+  day: 'numeric',
   month: 'short',
   hour: '2-digit',
   minute: '2-digit',
@@ -16,7 +18,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat(LOCALE, {
 });
 
 const dateFormatter = new Intl.DateTimeFormat(LOCALE, {
-  day: '2-digit',
+  day: 'numeric',
   month: 'short',
 });
 
@@ -41,12 +43,12 @@ const mediumDateFormatter = new Intl.DateTimeFormat(LOCALE, {
 
 const numberFormatter = new Intl.NumberFormat(LOCALE);
 
-/** "14 ago, 09:32" */
+/** "5 sept, 09:32" */
 export function formatDateTime(iso: string): string {
   return dateTimeFormatter.format(new Date(iso));
 }
 
-/** "14 ago" — para ejes y encabezados donde la hora sobra. */
+/** "5 sept" — para ejes y encabezados donde la hora sobra. */
 export function formatShortDate(iso: string): string {
   return dateFormatter.format(new Date(iso));
 }
@@ -99,8 +101,11 @@ export function formatDurationFromHours(hours: number): string {
     return minutes === 0 ? `${whole} h` : `${whole} h ${minutes} min`;
   }
 
-  const days = Math.floor(hours / 24);
-  const remainingHours = Math.round(hours - days * 24);
+  // Se redondea antes de partir en días y horas: redondear sólo el resto
+  // convierte 47,6 h en "1 d 24 h".
+  const totalHours = Math.round(hours);
+  const days = Math.floor(totalHours / 24);
+  const remainingHours = totalHours % 24;
   return remainingHours === 0 ? `${days} d` : `${days} d ${remainingHours} h`;
 }
 
@@ -142,4 +147,73 @@ export function toLocalDateKey(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+const timeFormatter = new Intl.DateTimeFormat(LOCALE, {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+const monthYearFormatter = new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric' });
+
+const longDayFormatter = new Intl.DateTimeFormat(LOCALE, {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
+const weekdayFormatter = new Intl.DateTimeFormat(LOCALE, { weekday: 'long' });
+
+const percentFormatter = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
+
+/** "09:32" */
+export function formatTime(date: Date): string {
+  return timeFormatter.format(date);
+}
+
+/** "Octubre de 2026", con mayúscula inicial porque encabeza el calendario. */
+export function formatMonthYear(date: Date): string {
+  const text = monthYearFormatter.format(date);
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** "lunes, 5 de octubre" */
+export function formatLongDay(date: Date): string {
+  return longDayFormatter.format(date);
+}
+
+/** "lunes" */
+export function formatWeekday(date: Date): string {
+  return weekdayFormatter.format(date);
+}
+
+/** "72 %", con el espacio fino que pide la ortografía del español. */
+export function formatPercent(ratio: number): string {
+  if (!Number.isFinite(ratio)) return '—';
+  return `${percentFormatter.format(ratio * 100)} %`;
+}
+
+/** Cronómetro "01:24:09" a partir de milisegundos. */
+export function formatClock(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
+}
+
+/** Duración compacta para sitios estrechos: "45 min", "6 h", "3 d". */
+export function formatCompactDuration(hours: number): string {
+  if (!Number.isFinite(hours) || hours < 0) return '—';
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min`;
+  if (hours < 48) return `${Math.round(hours)} h`;
+  return `${Math.round(hours / 24)} d`;
+}
+
+/** Inicio del día local que contiene ese instante. */
+export function startOfLocalDay(timestamp: number): Date {
+  const date = new Date(timestamp);
+  date.setHours(0, 0, 0, 0);
+  return date;
 }

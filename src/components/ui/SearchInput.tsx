@@ -48,7 +48,7 @@ export function SearchInput({
       </label>
       <Search
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-muted"
+        className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-text-muted"
       />
       <input
         id={inputId}
@@ -58,16 +58,16 @@ export function SearchInput({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         className={cn(
-          'h-9 w-full rounded-control border border-border-subtle bg-surface-sunken pr-9 pl-9 text-sm',
+          'h-10 w-full rounded-pill border border-border-subtle bg-surface-panel pr-10 pl-10 text-sm',
           'text-text-primary placeholder:text-text-muted',
-          'hover:border-border-strong focus:border-accent focus:outline-none',
+          'transition-colors hover:border-border-strong focus:border-accent focus:outline-none',
           '[&::-webkit-search-cancel-button]:hidden',
         )}
       />
       {showHint && (
         <kbd
           aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 rounded border border-border-subtle bg-surface-raised px-1.5 py-0.5 font-mono text-[0.6875rem] leading-none text-text-muted sm:block"
+          className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded-md border border-border-subtle bg-surface-card px-1.5 py-0.5 font-mono text-[0.6875rem] leading-none text-text-muted sm:block"
         >
           {shortcutHint}
         </kbd>
@@ -78,7 +78,7 @@ export function SearchInput({
           type="button"
           onClick={() => onChange('')}
           aria-label="Limpiar búsqueda"
-          className="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-control text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
+          className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-pill text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
         >
           <X aria-hidden="true" className="size-4" />
         </button>

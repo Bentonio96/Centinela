@@ -8,6 +8,11 @@
  * enlaces que se pueden compartir, recargas que no pierden el contexto y un
  * botón "atrás" que hace lo que el usuario espera.
  *
+ * Vive en la raíz de la aplicación y no dentro de la vista de incidentes
+ * porque dos cosas suyas son globales: el incidente abierto —su panel de
+ * detalle se abre sobre cualquier vista— y los filtros, que el panel, el
+ * calendario y el equipo fijan antes de saltar a la tabla.
+ *
  * El filtrado y el orden siguen viviendo en `lib/filterIncidents` como
  * funciones puras; aquí sólo se coordina estado.
  */
@@ -15,14 +20,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createSearchIndex, filterIncidents, sortIncidents } from '@/lib/filterIncidents';
+import { parseView, type View } from '@/lib/router';
 import { parseViewState, toUrl, type ViewState } from '@/lib/urlState';
-import type {
-  Incident,
-  IncidentCategory,
-  IncidentStatus,
-  Severity,
-  SortableColumn,
-} from '@/types';
+import type { Incident, IncidentCategory, IncidentStatus, Severity, SortableColumn } from '@/types';
 
 /** Filas por página. Suficiente para llenar una pantalla sin volverla infinita. */
 export const PAGE_SIZE = 25;
@@ -65,7 +65,23 @@ function currentUrl(): string {
 }
 
 /**
- * Un conjunto de filtros completo, tal como lo emite una tarjeta de indicador.
+ * Lee la URL respetando en qué vista se está.
+ *
+ * Fuera de la vista de incidentes la query no lleva filtros —ver
+ * `toQueryString`—, así que leerlos de ahí los borraría de la memoria cada vez
+ * que se pulsa "atrás" en otra vista. En ese caso sólo se actualiza el
+ * incidente abierto y los filtros se conservan.
+ */
+function readLocation(current: ViewState | null): ViewState {
+  const parsed = parseViewState(window.location.search);
+  if (current === null || parseView(window.location.pathname) === 'incidentes') {
+    return parsed;
+  }
+  return { ...current, selectedId: parsed.selectedId };
+}
+
+/**
+ * Un conjunto de filtros completo, tal como lo emite una tarjeta del panel.
  *
  * Se aplica reemplazando —no combinando— todo lo que hubiera antes: pulsar
  * "Críticos sin resolver" tiene que llevar exactamente a esos, no a esos
@@ -78,6 +94,7 @@ export interface FilterPreset {
   readonly statuses?: readonly IncidentStatus[];
   readonly category?: IncidentCategory | null;
   readonly day?: string | null;
+  readonly assignee?: string | null;
 }
 
 /** Igualdad sin importar el orden: son conjuntos, no secuencias. */
@@ -90,6 +107,8 @@ function sameValues<T>(a: readonly T[], b: readonly T[]): boolean {
 export interface UseIncidentsResult {
   /** Incidentes de la página actual, ya filtrados y ordenados. */
   readonly incidents: readonly Incident[];
+  /** Todos los que pasan los filtros, en orden: lo que se exporta. */
+  readonly filtered: readonly Incident[];
   /** Total tras aplicar los filtros, en todas las páginas. */
   readonly filteredCount: number;
   /** Total del dataset, sin filtrar. */
@@ -100,19 +119,19 @@ export interface UseIncidentsResult {
   readonly statuses: readonly IncidentStatus[];
   readonly category: IncidentCategory | null;
   readonly day: string | null;
+  readonly assignee: string | null;
   readonly hasActiveFilters: boolean;
   readonly setSearch: (value: string) => void;
   readonly toggleSeverity: (severity: Severity) => void;
   /**
    * Reemplazan el filtro; `null` lo limpia.
    *
-   * Son asignaciones y no conmutadores: el "volver a pulsar para quitar" es un
-   * gesto que sólo tiene sentido sobre un gráfico, así que vive en el gráfico.
-   * Aquí dejaría al `<select>` teniendo que simular una asignación con dos
-   * llamadas encadenadas.
+   * Son asignaciones y no conmutadores: un `<select>` tendría que simular una
+   * asignación con dos llamadas encadenadas.
    */
   readonly selectCategory: (category: IncidentCategory | null) => void;
   readonly selectDay: (day: string | null) => void;
+  readonly selectAssignee: (assignee: string | null) => void;
   readonly clearStatuses: () => void;
   /** Reemplaza todos los filtros por los del conjunto dado. */
   readonly applyPreset: (preset: FilterPreset) => void;
@@ -136,12 +155,13 @@ export interface UseIncidentsResult {
   readonly closeIncident: () => void;
 }
 
-export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
+export function useIncidents(source: readonly Incident[], route: View): UseIncidentsResult {
   const [navigation, setNavigation] = useState<Navigation>(() => ({
-    view: parseViewState(window.location.search),
+    view: readLocation(null),
     mode: 'replace',
   }));
   const view = navigation.view;
+  const onIncidentsRoute = route === 'incidentes';
 
   /**
    * Sincroniza la barra de direcciones con el estado.
@@ -150,9 +170,12 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
    * que permite que el doble montaje de StrictMode no duplique entradas del
    * historial, y que la vuelta desde `popstate` no reescriba la URL que acaba
    * de restaurar el navegador.
+   *
+   * Depende también de la ruta: al entrar a la vista de incidentes hay que
+   * reponer en la URL los filtros que seguían en memoria.
    */
   useEffect(() => {
-    const url = toUrl(view);
+    const url = toUrl(view, onIncidentsRoute);
     if (url === currentUrl()) return;
 
     if (navigation.mode === 'push') {
@@ -160,12 +183,12 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
     } else {
       window.history.replaceState(window.history.state, '', url);
     }
-  }, [view, navigation.mode]);
+  }, [view, navigation.mode, onIncidentsRoute]);
 
   // El usuario navegó con los botones del navegador: la URL manda.
   useEffect(() => {
     const handlePopState = () => {
-      setNavigation({ view: parseViewState(window.location.search), mode: 'replace' });
+      setNavigation((current) => ({ view: readLocation(current.view), mode: 'replace' }));
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -202,10 +225,20 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
           category: view.category,
           day: view.day,
           statuses: view.statuses,
+          assignee: view.assignee,
         },
         searchIndex,
       ),
-    [source, view.search, view.severities, view.statuses, view.category, view.day, searchIndex],
+    [
+      source,
+      view.search,
+      view.severities,
+      view.statuses,
+      view.category,
+      view.day,
+      view.assignee,
+      searchIndex,
+    ],
   );
 
   const sorted = useMemo(() => sortIncidents(filtered, view.sort), [filtered, view.sort]);
@@ -254,6 +287,13 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
     [filter],
   );
 
+  const selectAssignee = useCallback(
+    (assignee: string | null) => {
+      filter((current) => ({ ...current, assignee }));
+    },
+    [filter],
+  );
+
   const clearStatuses = useCallback(() => {
     filter((current) => ({ ...current, statuses: [] }));
   }, [filter]);
@@ -267,6 +307,7 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
         statuses: preset.statuses ?? [],
         category: preset.category ?? null,
         day: preset.day ?? null,
+        assignee: preset.assignee ?? null,
       }));
     },
     [filter],
@@ -277,6 +318,7 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
       view.search === (preset.search ?? '') &&
       view.category === (preset.category ?? null) &&
       view.day === (preset.day ?? null) &&
+      view.assignee === (preset.assignee ?? null) &&
       sameValues(view.severities, preset.severities ?? []) &&
       sameValues(view.statuses, preset.statuses ?? []),
     [view],
@@ -290,6 +332,7 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
       statuses: [],
       category: null,
       day: null,
+      assignee: null,
     }));
   }, [filter]);
 
@@ -318,9 +361,9 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
   );
 
   /**
-   * Se guarda el id y no el objeto: si el dataset cambia —y con el modo en vivo
-   * cambia— el panel abierto sigue mostrando el incidente correcto en lugar de
-   * una copia congelada.
+   * Se guarda el id y no el objeto: el dataset cambia —el flujo en vivo trae
+   * casos, el tablero los mueve de estado— y el panel abierto tiene que seguir
+   * mostrando el incidente al día en lugar de una copia congelada.
    */
   const selectedIncident = useMemo(
     () =>
@@ -342,11 +385,14 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
    *
    * La navegación se queda dentro de la página a propósito: saltar de la
    * última fila de una página a la primera de la siguiente cambiaría el listado
-   * bajo los pies de quien sólo quería ver el incidente de al lado.
+   * bajo los pies de quien sólo quería ver el incidente de al lado. Y sólo
+   * existe en la vista de incidentes: en las demás no hay una lista visible
+   * que dé sentido a "anterior" y "siguiente".
    */
   const selectedIndex = useMemo(
-    () => incidents.findIndex((incident) => incident.id === view.selectedId),
-    [incidents, view.selectedId],
+    () =>
+      onIncidentsRoute ? incidents.findIndex((incident) => incident.id === view.selectedId) : -1,
+    [incidents, view.selectedId, onIncidentsRoute],
   );
 
   const hasAdjacentIncident = useCallback(
@@ -384,6 +430,7 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
 
   return {
     incidents,
+    filtered: sorted,
     filteredCount: sorted.length,
     totalCount: source.length,
 
@@ -392,16 +439,19 @@ export function useIncidents(source: readonly Incident[]): UseIncidentsResult {
     statuses: view.statuses,
     category: view.category,
     day: view.day,
+    assignee: view.assignee,
     hasActiveFilters:
       view.search.trim() !== '' ||
       view.severities.length > 0 ||
       view.statuses.length > 0 ||
       view.category !== null ||
-      view.day !== null,
+      view.day !== null ||
+      view.assignee !== null,
     setSearch,
     toggleSeverity,
     selectCategory,
     selectDay,
+    selectAssignee,
     clearStatuses,
     applyPreset,
     isPresetActive,

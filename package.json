@@ -16,7 +16,6 @@
     "lucide-react": "^1.34.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "recharts": "^3.10.1",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
@@ -29,5 +28,5 @@
     "typescript": "~6.0.2",
     "vite": "^8.2.2"
   },
-  "description": "Dashboard de monitoreo de incidentes de ciberseguridad"
+  "description": "Consola de operaciones de seguridad: panel bento, triaje de incidentes, tablero kanban, calendario, analítica y equipo"
 }

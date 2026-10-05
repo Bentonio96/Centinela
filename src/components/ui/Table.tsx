@@ -21,7 +21,7 @@ export function Table({ caption, className, children, ...props }: TableProps) {
   return (
     // El contenedor absorbe el desborde horizontal en anchos intermedios, para
     // que la página nunca scrollee de lado.
-    <div className="overflow-x-auto">
+    <div className="scroll-area relative overflow-x-auto">
       <table className={cn('w-full border-collapse text-sm', className)} {...props}>
         <caption className="sr-only">{caption}</caption>
         {children}
@@ -33,7 +33,7 @@ export function Table({ caption, className, children, ...props }: TableProps) {
 export function Thead({ className, ...props }: ComponentPropsWithoutRef<'thead'>) {
   return (
     <thead
-      className={cn('border-b border-border-subtle bg-surface-sunken/60', className)}
+      className={cn('border-y border-border-subtle bg-surface-sunken', className)}
       {...props}
     />
   );
@@ -62,16 +62,15 @@ export function Tr({
     <tr
       className={cn(
         'transition-colors',
-        interactive && 'cursor-pointer hover:bg-surface-hover focus-visible:bg-surface-hover',
+        interactive && 'cursor-pointer hover:bg-surface-hover focus-within:bg-surface-hover',
         // El resalte se apaga solo al quitarse la clase: `transition-colors` lo
-        // desvanece, sin necesidad de una animación propia. El barrido de luz
-        // se suma encima y sólo corre una vez, al llegar la fila.
+        // desvanece. El barrido de luz se suma encima y sólo corre una vez.
         //
         // Sólo se anima la llegada, no cada repintado: filtrar reordena las 25
         // filas y animarlas todas convertiría cada pulsación en un espectáculo.
-        highlighted && 'row-arrival bg-accent-soft/60',
+        highlighted && 'row-arrival bg-accent-soft',
         // El borde izquierdo marca la fila abierta sin depender sólo del fondo.
-        selected && 'bg-accent-soft/40 shadow-[inset_2px_0_0_0_var(--accent)]',
+        selected && 'bg-accent-soft shadow-[inset_3px_0_0_0_var(--accent)]',
         className,
       )}
       {...props}
@@ -105,7 +104,7 @@ export function Th({
   ...props
 }: ThProps) {
   const baseClassName = cn(
-    'px-cell-x py-2 text-xs font-medium tracking-wide text-text-muted uppercase',
+    'px-cell-x py-2.5 text-[0.6875rem] font-semibold tracking-wider text-text-muted uppercase',
     ALIGN_CLASSES[align],
     className,
   );
@@ -133,9 +132,9 @@ export function Th({
         type="button"
         onClick={onSort}
         className={cn(
-          'flex w-full items-center gap-1 px-cell-x py-2 font-medium tracking-wide uppercase transition-colors',
+          'flex w-full items-center gap-1 px-cell-x py-2.5 font-semibold tracking-wider uppercase transition-colors',
           'hover:text-text-primary',
-          isSorted ? 'text-text-secondary' : 'text-text-muted',
+          isSorted ? 'text-text-primary' : 'text-text-muted',
           align === 'right' && 'justify-end',
         )}
       >

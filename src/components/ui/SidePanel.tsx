@@ -5,11 +5,10 @@
  * `role="dialog"`. Con `showModal()` el navegador ya entrega, y bien, todo lo
  * que habría que reimplementar a mano: atrapa el foco, cierra con Escape,
  * vuelve el resto de la página inerte para lectores de pantalla y devuelve el
- * foco al elemento que lo abrió. Reescribir eso es la fuente habitual de
- * modales inaccesibles.
+ * foco al elemento que lo abrió.
  *
- * Lo único que el navegador no hace es bloquear el scroll de fondo, así que eso
- * sí se maneja aquí.
+ * Flota separado del borde, con las cuatro esquinas redondeadas: es una hoja
+ * más de la ventana, no una cortina que baja desde fuera.
  *
  * Las flechas izquierda y derecha recorren la lista sin cerrar el panel, que es
  * el gesto real de triaje: se revisan diez incidentes seguidos, no uno. Los
@@ -27,6 +26,8 @@ interface SidePanelProps {
   readonly open: boolean;
   readonly onClose: () => void;
   readonly title: string;
+  /** Qué se cierra, para el nombre accesible del botón: "el detalle del incidente". */
+  readonly closeLabel: string;
   /** Línea superior sobre el título, p. ej. el identificador del incidente. */
   readonly eyebrow?: ReactNode;
   readonly children: ReactNode;
@@ -41,6 +42,7 @@ export function SidePanel({
   open,
   onClose,
   title,
+  closeLabel,
   eyebrow,
   children,
   onPrev,
@@ -50,7 +52,7 @@ export function SidePanel({
 }: SidePanelProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const canNavigate = onPrev !== undefined && onNext !== undefined;
+  const canNavigate = onPrev !== undefined && onNext !== undefined && (hasPrev || hasNext);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -64,20 +66,10 @@ export function SidePanel({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open]);
-
-  useEffect(() => {
     if (!open || !canNavigate) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Dentro del panel hay campos de texto donde las flechas mueven el cursor.
+      // Dentro del panel hay campos donde las flechas mueven el cursor.
       if (isTypingTarget(event.target)) return;
 
       if (event.key === 'ArrowLeft' && hasPrev) {
@@ -109,27 +101,26 @@ export function SidePanel({
           onClose();
         }
       }}
-      className="my-0 mr-0 ml-auto h-dvh max-h-dvh w-full max-w-full border-l border-glass bg-surface-overlay/90 p-0 text-text-primary shadow-panel backdrop-blur-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm sm:w-panel motion-safe:animate-panel-in"
+      className="my-2 mr-2 ml-auto h-[calc(100dvh-1rem)] max-h-none w-[calc(100vw-1rem)] max-w-none rounded-panel bg-surface-overlay p-0 text-text-primary shadow-popover backdrop:bg-brand-950/55 backdrop:backdrop-blur-[3px] sm:my-3 sm:mr-3 sm:h-[calc(100dvh-1.5rem)] sm:w-panel motion-safe:open:animate-panel-in dark:ring-1 dark:ring-border-strong"
     >
       {/* El contenido sólo se monta con el panel abierto: así el detalle no
           queda en el DOM cuando no se está mostrando. */}
       {open && (
         <div className="flex h-full flex-col">
-          <header className="flex items-start justify-between gap-3 border-b border-border-subtle px-gutter-sm py-3">
+          <header className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
             <div className="min-w-0">
-              {eyebrow !== undefined && <div className="mb-1">{eyebrow}</div>}
-              <h2 id={titleId} className="text-base leading-snug font-semibold text-text-primary">
+              {eyebrow !== undefined && <div className="mb-1.5">{eyebrow}</div>}
+              <h2 id={titleId} className="text-lg leading-snug font-semibold text-text-primary">
                 {title}
               </h2>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="-mt-1 -mr-1.5 flex shrink-0 items-center gap-0.5">
               {canNavigate && (
                 <>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="size-8"
+                    size="icon-sm"
                     onClick={onPrev}
                     disabled={!hasPrev}
                     aria-label="Incidente anterior"
@@ -139,8 +130,7 @@ export function SidePanel({
                   </Button>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="size-8"
+                    size="icon-sm"
                     onClick={onNext}
                     disabled={!hasNext}
                     aria-label="Incidente siguiente"
@@ -154,17 +144,16 @@ export function SidePanel({
 
               <Button
                 variant="ghost"
-                size="icon"
-                className="size-8"
+                size="icon-sm"
                 onClick={onClose}
-                aria-label="Cerrar el detalle del incidente"
+                aria-label={`Cerrar ${closeLabel}`}
               >
                 <X aria-hidden="true" className="size-4" />
               </Button>
             </div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-gutter-sm py-gutter-sm">{children}</div>
+          <div className="scroll-area min-h-0 flex-1 overflow-y-auto px-5 pb-5">{children}</div>
         </div>
       )}
     </dialog>

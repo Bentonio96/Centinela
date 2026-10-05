@@ -24,7 +24,7 @@ export function Pagination({ page, pageCount, onPageChange }: PaginationProps) {
   return (
     <nav
       aria-label="Paginación de incidentes"
-      className="flex items-center justify-between gap-3 border-t border-border-subtle px-gutter-sm py-2.5"
+      className="flex items-center justify-between gap-3 border-t border-border-subtle px-4.5 py-3"
     >
       <Button
         size="sm"

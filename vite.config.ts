@@ -23,7 +23,8 @@ export default defineConfig({
           // en su propio chunk sobrevive en caché a la mayoría de los deploys.
           // Vite normaliza los ids a barras normales, también en Windows.
           if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react'
-          // Recharts y sus dependencias pesan más que toda la aplicación junta.
+          // Lo demás —hoy, sólo los iconos— va aparte de la aplicación: cambia
+          // con las dependencias, no con cada despliegue.
           return 'vendor'
         },
       },

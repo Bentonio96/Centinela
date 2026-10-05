@@ -19,7 +19,7 @@ export function Badge({ dotClassName, className, children, ...props }: BadgeProp
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-pill border px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+        'inline-flex items-center gap-1.5 rounded-pill border px-2 py-0.5 text-[0.6875rem] leading-4 font-semibold whitespace-nowrap',
         className,
       )}
       {...props}

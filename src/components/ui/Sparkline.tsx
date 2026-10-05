@@ -26,6 +26,7 @@ interface SparklineProps {
   readonly values: readonly number[];
   /** Color del trazo y del degradado, normalmente un `var(--token)`. */
   readonly color: string;
+  /** Clases del SVG. Debe incluir el alto; por defecto, `h-8`. */
   readonly className?: string;
 }
 
@@ -61,7 +62,7 @@ export function Sparkline({ values, color, className }: SparklineProps) {
       // El `viewBox` se estira al ancho disponible; `non-scaling-stroke` evita
       // que el trazo se estire con él y quede de grosor desigual.
       preserveAspectRatio="none"
-      className={cn('h-8 w-full overflow-visible', className)}
+      className={cn('w-full overflow-visible', className ?? 'h-8')}
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

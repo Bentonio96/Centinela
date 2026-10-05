@@ -12,6 +12,7 @@
  * propagar un tipo mentiroso al resto de la aplicación.
  */
 
+import { isAnalystName } from '@/data/team';
 import type {
   IncidentCategory,
   IncidentStatus,
@@ -26,18 +27,18 @@ import { CATEGORIES, SEVERITIES, SORTABLE_COLUMNS, STATUSES } from '@/types';
 export interface ViewState {
   readonly search: string;
   readonly severities: readonly Severity[];
-  /** Categoría filtrada, emitida por el gráfico de barras o por el selector. */
   readonly category: IncidentCategory | null;
-  /** Día concreto `YYYY-MM-DD`, emitido al hacer clic en el gráfico de línea. */
+  /** Día concreto `YYYY-MM-DD`. */
   readonly day: string | null;
-  /** Estados del ciclo de vida, emitidos desde las tarjetas de indicador. */
   readonly statuses: readonly IncidentStatus[];
+  /** Analista responsable, por nombre. */
+  readonly assignee: string | null;
   readonly sort: SortState;
   readonly page: number;
   readonly selectedId: string | null;
 }
 
-/** Lo más reciente primero: es lo que un analista quiere ver al abrir el tablero. */
+/** Lo más reciente primero: es lo que un analista quiere ver al abrir la tabla. */
 export const DEFAULT_SORT: SortState = { column: 'detectedAt', direction: 'desc' };
 
 export const DEFAULT_VIEW_STATE: ViewState = {
@@ -46,6 +47,7 @@ export const DEFAULT_VIEW_STATE: ViewState = {
   category: null,
   day: null,
   statuses: [],
+  assignee: null,
   sort: DEFAULT_SORT,
   page: 1,
   selectedId: null,
@@ -58,6 +60,7 @@ const PARAM = {
   category: 'cat',
   day: 'dia',
   statuses: 'estado',
+  assignee: 'resp',
   sort: 'orden',
   page: 'p',
   selected: 'inc',
@@ -108,6 +111,11 @@ function parseCategory(raw: string | null): IncidentCategory | null {
   return raw !== null && isCategory(raw) ? raw : null;
 }
 
+/** Sólo nombres del equipo: cualquier otro texto se descarta. */
+function parseAssignee(raw: string | null): string | null {
+  return raw !== null && isAnalystName(raw) ? raw : null;
+}
+
 /** `detectedAt:desc`. Cualquier otra cosa cae al orden por defecto. */
 function parseSort(raw: string | null): SortState {
   if (raw === null) return DEFAULT_SORT;
@@ -139,6 +147,7 @@ export function parseViewState(queryString: string): ViewState {
     category: parseCategory(params.get(PARAM.category)),
     day: parseDay(params.get(PARAM.day)),
     statuses: parseList(params.get(PARAM.statuses), isStatus),
+    assignee: parseAssignee(params.get(PARAM.assignee)),
     sort: parseSort(params.get(PARAM.sort)),
     page: parsePage(params.get(PARAM.page)),
     selectedId: params.get(PARAM.selected),
@@ -147,23 +156,34 @@ export function parseViewState(queryString: string): ViewState {
 
 /**
  * Serializa omitiendo todo lo que esté en su valor por defecto.
- * Sin eso, la vista inicial mostraría una URL llena de parámetros vacíos y
- * cualquier enlace compartido sería ilegible.
+ *
+ * `includeFilters` existe porque los filtros sólo significan algo en la vista
+ * de incidentes: en el panel o en el calendario no habría nada que filtraran,
+ * y dejarlos en la URL haría que un enlace al tablero arrastrara un `?sev=…`
+ * sin efecto. El incidente abierto sí se serializa siempre, porque su panel de
+ * detalle se abre sobre cualquier vista.
  */
-export function toQueryString(state: ViewState): string {
+export function toQueryString(state: ViewState, includeFilters: boolean): string {
   const params = new URLSearchParams();
 
-  if (state.search.trim() !== '') params.set(PARAM.search, state.search);
-  if (state.severities.length > 0) params.set(PARAM.severities, state.severities.join(','));
-  if (state.category !== null) params.set(PARAM.category, state.category);
-  if (state.day !== null) params.set(PARAM.day, state.day);
-  if (state.statuses.length > 0) params.set(PARAM.statuses, state.statuses.join(','));
+  if (includeFilters) {
+    if (state.search.trim() !== '') params.set(PARAM.search, state.search);
+    if (state.severities.length > 0) params.set(PARAM.severities, state.severities.join(','));
+    if (state.category !== null) params.set(PARAM.category, state.category);
+    if (state.day !== null) params.set(PARAM.day, state.day);
+    if (state.statuses.length > 0) params.set(PARAM.statuses, state.statuses.join(','));
+    if (state.assignee !== null) params.set(PARAM.assignee, state.assignee);
 
-  if (state.sort.column !== DEFAULT_SORT.column || state.sort.direction !== DEFAULT_SORT.direction) {
-    params.set(PARAM.sort, `${state.sort.column}:${state.sort.direction}`);
+    if (
+      state.sort.column !== DEFAULT_SORT.column ||
+      state.sort.direction !== DEFAULT_SORT.direction
+    ) {
+      params.set(PARAM.sort, `${state.sort.column}:${state.sort.direction}`);
+    }
+
+    if (state.page > 1) params.set(PARAM.page, String(state.page));
   }
 
-  if (state.page > 1) params.set(PARAM.page, String(state.page));
   if (state.selectedId !== null) params.set(PARAM.selected, state.selectedId);
 
   const query = params.toString();
@@ -171,6 +191,6 @@ export function toQueryString(state: ViewState): string {
 }
 
 /** La URL completa que corresponde a un estado, conservando la ruta actual. */
-export function toUrl(state: ViewState): string {
-  return `${window.location.pathname}${toQueryString(state)}${window.location.hash}`;
+export function toUrl(state: ViewState, includeFilters: boolean): string {
+  return `${window.location.pathname}${toQueryString(state, includeFilters)}${window.location.hash}`;
 }

@@ -1,39 +1,29 @@
 /**
- * Barra de filtros de la tabla: búsqueda, categoría, severidades y el enlace
- * de la vista.
+ * Barra de filtros de la tabla: búsqueda, categoría, responsable y
+ * severidades.
  *
- * El selector de categoría existe además del gráfico de barras, no en lugar de
- * él. Filtrar haciendo clic en una barra es cómodo con el ratón, pero sería la
- * única vía para llegar a ese filtro, y con el teclado no hay forma de pulsar
- * una barra. Un `<select>` nativo lo resuelve sin inventar nada: llega por Tab,
- * se abre con el teclado y lo anuncian los lectores de pantalla.
+ * Categoría y responsable son `<select>` nativos: llegan por Tab, se abren con
+ * el teclado y los anuncian los lectores de pantalla sin inventar nada. La
+ * severidad son chips con `aria-pressed` porque es de selección múltiple —
+ * filtrar por "crítica y alta" a la vez es triaje corriente— y un `<select
+ * multiple>` es de los controles peor resueltos de la plataforma.
  *
- * El atajo de `/` se registra aquí y no en `App` porque el campo que enfoca
+ * El atajo de `/` se registra aquí y no en la raíz porque el campo que enfoca
  * vive aquí. Un atajo global cuyo destino está tres componentes más abajo
  * obliga a pasar una `ref` por toda la cadena para no ganar nada.
- *
- * El recuento de resultados no vive aquí sino en la cabecera del panel, junto
- * al título: es el resultado de filtrar, no un control más.
  */
 
 import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 import { Button } from '@/components/ui/Button';
-import { CopyLinkButton } from '@/components/ui/CopyLinkButton';
+import { CONTROL_CLASS } from '@/components/ui/control';
 import { SearchInput } from '@/components/ui/SearchInput';
-import { ToggleGroup, type ToggleOption } from '@/components/ui/ToggleGroup';
+import { TEAM } from '@/data/team';
 import { CATEGORY_OPTIONS, SEVERITY_OPTIONS } from '@/lib/catalog';
+import { cn } from '@/lib/cn';
 import { hasModifier, isTypingTarget } from '@/lib/keyboard';
 import type { IncidentCategory, Severity } from '@/types';
-
-/** Las opciones no dependen de las props: se construyen una sola vez. */
-const SEVERITY_TOGGLES: readonly ToggleOption<Severity>[] = SEVERITY_OPTIONS.map((meta) => ({
-  value: meta.value,
-  label: meta.label,
-  dotClassName: meta.dotClassName,
-  activeClassName: meta.badgeClassName,
-}));
 
 interface IncidentFiltersProps {
   readonly search: string;
@@ -42,12 +32,16 @@ interface IncidentFiltersProps {
   readonly onToggleSeverity: (severity: Severity) => void;
   readonly category: IncidentCategory | null;
   readonly onSelectCategory: (category: IncidentCategory | null) => void;
+  readonly assignee: string | null;
+  readonly onSelectAssignee: (assignee: string | null) => void;
   readonly hasActiveFilters: boolean;
   readonly onClearFilters: () => void;
 }
 
 /** El valor del `<option>` que representa "sin filtro". */
-const ALL_CATEGORIES = '';
+const ALL = '';
+
+const SELECT_CLASS = cn(CONTROL_CLASS, 'h-10 w-auto rounded-pill pr-8');
 
 export function IncidentFilters({
   search,
@@ -56,6 +50,8 @@ export function IncidentFilters({
   onToggleSeverity,
   category,
   onSelectCategory,
+  assignee,
+  onSelectAssignee,
   hasActiveFilters,
   onClearFilters,
 }: IncidentFiltersProps) {
@@ -66,6 +62,8 @@ export function IncidentFilters({
       if (event.key !== '/' || hasModifier(event)) return;
       // Sin esta guarda, escribir una barra en cualquier campo movería el foco.
       if (isTypingTarget(event.target)) return;
+      // Con un diálogo abierto, la tabla está inerte: no hay campo que enfocar.
+      if (document.querySelector('dialog[open]') !== null) return;
 
       // El `preventDefault` evita que la barra acabe escrita en el campo que
       // se acaba de enfocar, y que Firefox abra su búsqueda rápida.
@@ -80,60 +78,105 @@ export function IncidentFilters({
   }, []);
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border-subtle px-gutter-sm py-3 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <SearchInput
-          value={search}
-          onChange={onSearchChange}
-          label="Buscar incidentes"
-          placeholder="Buscar por título, ID o activo…"
-          inputRef={searchRef}
-          shortcutHint="/"
-          className="sm:w-72"
-        />
+    // Una sola fila que envuelve: en un ancho intermedio los controles bajan
+    // de a uno, en vez de partirse en dos grupos que se descuadran entre sí.
+    <div className="flex flex-wrap items-center gap-2.5 px-4.5 py-3.5">
+      <SearchInput
+        value={search}
+        onChange={onSearchChange}
+        label="Buscar incidentes"
+        placeholder="Buscar por título, ID o activo…"
+        inputRef={searchRef}
+        shortcutHint="/"
+        className="w-full sm:w-72"
+      />
 
-        <div>
-          <label htmlFor="filtro-categoria" className="sr-only">
-            Filtrar por categoría
-          </label>
-          <select
-            id="filtro-categoria"
-            value={category ?? ALL_CATEGORIES}
-            onChange={(event) => {
-              // El valor viaja como `string`; se resuelve contra el catálogo
-              // para recuperar el tipo del dominio sin una aserción.
-              const match = CATEGORY_OPTIONS.find((option) => option.value === event.target.value);
-              onSelectCategory(match?.value ?? null);
-            }}
-            className="h-9 rounded-control border border-border-subtle bg-surface-sunken px-2.5 text-sm text-text-primary transition-colors hover:border-border-strong focus:border-accent focus:outline-none"
-          >
-            <option value={ALL_CATEGORIES}>Todas las categorías</option>
-            {CATEGORY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label htmlFor="filtro-categoria" className="sr-only">
+          Filtrar por categoría
+        </label>
+        <select
+          id="filtro-categoria"
+          value={category ?? ALL}
+          onChange={(event) => {
+            // El valor viaja como `string`; se resuelve contra el catálogo
+            // para recuperar el tipo del dominio sin una aserción.
+            const match = CATEGORY_OPTIONS.find((option) => option.value === event.target.value);
+            onSelectCategory(match?.value ?? null);
+          }}
+          className={SELECT_CLASS}
+        >
+          <option value={ALL}>Todas las categorías</option>
+          {CATEGORY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <ToggleGroup
-          label="Filtrar por severidad"
-          options={SEVERITY_TOGGLES}
-          selected={severities}
-          onToggle={onToggleSeverity}
-        />
-
-        <CopyLinkButton />
-
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={onClearFilters}>
-            <X aria-hidden="true" className="size-3.5" />
-            Limpiar
-          </Button>
-        )}
+      <div>
+        <label htmlFor="filtro-responsable" className="sr-only">
+          Filtrar por responsable
+        </label>
+        <select
+          id="filtro-responsable"
+          value={assignee ?? ALL}
+          onChange={(event) => {
+            onSelectAssignee(event.target.value === ALL ? null : event.target.value);
+          }}
+          className={SELECT_CLASS}
+        >
+          <option value={ALL}>Todo el equipo</option>
+          {TEAM.map((analyst) => (
+            <option key={analyst.name} value={analyst.name}>
+              {analyst.name}
+            </option>
+          ))}
+        </select>
       </div>
+
+      <div
+        role="group"
+        aria-label="Filtrar por severidad"
+        className="flex flex-wrap gap-1.5 xl:ml-auto"
+      >
+        {SEVERITY_OPTIONS.map((option) => {
+          const isActive = severities.includes(option.value);
+
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => onToggleSeverity(option.value)}
+              className={cn(
+                'inline-flex h-8 items-center gap-1.5 rounded-pill border px-3 text-xs font-semibold transition-colors',
+                isActive
+                  ? option.badgeClassName
+                  : 'border-border-subtle text-text-secondary hover:border-border-strong hover:text-text-primary',
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'size-1.5 shrink-0 rounded-pill transition-opacity',
+                  option.dotClassName,
+                  !isActive && 'opacity-60',
+                )}
+              />
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {hasActiveFilters && (
+        <Button variant="ghost" size="sm" onClick={onClearFilters}>
+          <X aria-hidden="true" className="size-3.5" />
+          Limpiar
+        </Button>
+      )}
     </div>
   );
 }

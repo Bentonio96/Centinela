@@ -4,33 +4,37 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark light" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#0b3a22" />
     <meta
       name="description"
-      content="Dashboard de monitoreo de incidentes de ciberseguridad: métricas, tendencia diaria, distribución por categoría y triaje de incidentes."
+      content="Centinela: consola de operaciones de seguridad. Panel bento, triaje de incidentes, tablero kanban, calendario de guardias, analítica y equipo."
     />
-    <title>Centinela — Monitoreo de incidentes</title>
+    <title>Centinela — Operaciones de seguridad</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
   </head>
   <body>
     <!--
-      Aplica el tema guardado antes del primer pintado. El tema oscuro ya es el
-      valor por defecto del CSS, así que esto sólo corrige el caso del usuario
-      que eligió el claro; sin esto vería un destello oscuro en cada carga.
+      Aplica tema y acento guardados antes del primer pintado. El tema claro con
+      acento bosque ya es el valor por defecto del CSS, así que esto sólo
+      corrige a quien eligió otra cosa; sin esto vería un destello en cada carga.
     -->
     <script>
       try {
-        if (localStorage.getItem('centinela:theme') === 'light') {
-          document.documentElement.classList.add('light');
+        var saved = JSON.parse(localStorage.getItem('centinela:settings') || '{}');
+        var theme = saved.theme || localStorage.getItem('centinela:theme');
+        if (theme === 'dark') document.documentElement.classList.add('dark');
+        if (typeof saved.accent === 'string' && saved.accent !== 'forest') {
+          document.documentElement.dataset.accent = saved.accent;
         }
       } catch (error) {
-        /* localStorage bloqueado: se mantiene el tema oscuro por defecto. */
+        /* localStorage bloqueado o corrupto: se mantienen los valores por defecto. */
       }
     </script>
     <div id="root"></div>

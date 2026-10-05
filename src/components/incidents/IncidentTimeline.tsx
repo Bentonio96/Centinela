@@ -5,6 +5,7 @@
  * pasos desordenados cambiaría lo que ocurrió.
  */
 
+import { cn } from '@/lib/cn';
 import { formatDateTime, formatLongDateTime } from '@/lib/format';
 import type { IncidentEvent } from '@/types';
 
@@ -19,17 +20,23 @@ export function IncidentTimeline({ events }: IncidentTimelineProps) {
         const isLast = index === events.length - 1;
 
         return (
-          <li key={`${event.at}-${index}`} className="relative pb-4 pl-5 last:pb-0">
+          <li key={`${event.at}-${index}`} className="relative pb-4 pl-6 last:pb-0">
             {/* Hilo que conecta los pasos; se corta en el último. */}
             {!isLast && (
               <span
                 aria-hidden="true"
-                className="absolute top-2.5 bottom-0 left-[3px] w-px bg-border-subtle"
+                className="absolute top-3 bottom-0 left-[4px] w-px bg-border-strong"
               />
             )}
             <span
               aria-hidden="true"
-              className="absolute top-1.5 left-0 size-[7px] rounded-pill border border-border-strong bg-surface-raised"
+              className={cn(
+                'absolute top-1.5 left-0 size-[9px] rounded-pill border-2',
+                // El último paso es el estado vigente: va lleno.
+                isLast
+                  ? 'border-brand-600 bg-brand-600'
+                  : 'border-border-strong bg-surface-overlay',
+              )}
             />
 
             <p className="text-sm leading-snug text-text-primary">{event.summary}</p>

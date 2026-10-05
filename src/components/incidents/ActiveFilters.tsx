@@ -1,10 +1,11 @@
 /**
- * Chips de los filtros que no tienen control propio en la barra.
+ * Chips de los filtros que se activaron desde otro sitio.
  *
- * La severidad, la búsqueda y la categoría no aparecen aquí: sus controles ya
- * muestran que están activos. El día y el estado sí, porque se activan desde
- * lejos —un clic en el gráfico, una tarjeta de indicador— y sin esto el listado
- * quedaría recortado sin nada visible que explique por qué.
+ * La severidad, la búsqueda, la categoría y el responsable no aparecen aquí:
+ * sus controles ya muestran que están activos. El día y el estado sí, porque
+ * se activan desde lejos —una barra del panel, un día del calendario, una
+ * tarjeta de indicador— y sin esto el listado quedaría recortado sin nada
+ * visible que explique por qué.
  *
  * Cada chip es un botón que deshace su filtro. Un filtro que no se puede
  * quitar desde donde se ve es una trampa.
@@ -36,7 +37,7 @@ function FilterChip({ label, title, onRemove }: FilterChipProps) {
       onClick={onRemove}
       title={title}
       aria-label={`Quitar filtro: ${label}`}
-      className="inline-flex h-7 items-center gap-1.5 rounded-control border border-accent bg-accent-soft px-2 text-xs font-medium text-text-primary transition-[colors,transform] duration-150 hover:border-border-strong active:scale-95"
+      className="inline-flex h-7 items-center gap-1.5 rounded-pill bg-accent-soft px-2.5 text-xs font-semibold text-accent-text transition-[background-color,transform] duration-150 hover:bg-surface-hover active:scale-95"
     >
       {label}
       <X aria-hidden="true" className="size-3" />
@@ -61,12 +62,7 @@ function describeStatuses(statuses: readonly IncidentStatus[]): string {
   return statuses.map((status) => STATUS_META[status].label).join(', ');
 }
 
-export function ActiveFilters({
-  day,
-  statuses,
-  onClearDay,
-  onClearStatuses,
-}: ActiveFiltersProps) {
+export function ActiveFilters({ day, statuses, onClearDay, onClearStatuses }: ActiveFiltersProps) {
   const hasDay = day !== null;
   const hasStatuses = statuses.length > 0;
 
@@ -75,8 +71,8 @@ export function ActiveFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 border-b border-border-subtle px-gutter-sm py-2">
-      <span className="text-xs text-text-muted">Filtros aplicados desde el tablero:</span>
+    <div className="flex flex-wrap items-center gap-1.5 px-4.5 pb-3">
+      <span className="text-xs text-text-muted">Recorte aplicado:</span>
 
       {hasStatuses && (
         <FilterChip

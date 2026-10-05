@@ -14,6 +14,7 @@
 import { ChevronRight } from 'lucide-react';
 import { useRef, type KeyboardEvent } from 'react';
 
+import { Avatar } from '@/components/ui/Avatar';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/Table';
 import { CATEGORY_META } from '@/lib/catalog';
 import { formatLongDateTime, formatRelativeTime } from '@/lib/format';
@@ -42,8 +43,7 @@ export function IncidentsTable({
   const rowButtons = useRef<(HTMLButtonElement | null)[]>([]);
 
   /** Dirección activa de una columna, o `null` si la tabla no se ordena por ella. */
-  const directionFor = (column: SortableColumn) =>
-    sort.column === column ? sort.direction : null;
+  const directionFor = (column: SortableColumn) => (sort.column === column ? sort.direction : null);
 
   const focusRow = (index: number) => {
     const clamped = Math.max(0, Math.min(index, incidents.length - 1));
@@ -91,13 +91,13 @@ export function IncidentsTable({
             Estado
           </Th>
           <Th
-            className="hidden lg:table-cell"
+            className="hidden 2xl:table-cell"
             sortDirection={directionFor('category')}
             onSort={() => onToggleSort('category')}
           >
             Categoría
           </Th>
-          <Th className="hidden xl:table-cell">Responsable</Th>
+          <Th className="hidden 3xl:table-cell">Responsable</Th>
           <Th sortDirection={directionFor('detectedAt')} onSort={() => onToggleSort('detectedAt')}>
             Detectado
           </Th>
@@ -125,7 +125,10 @@ export function IncidentsTable({
             >
               <Td className="font-mono text-xs whitespace-nowrap text-text-muted">{incident.id}</Td>
 
-              <Td className="max-w-md p-0">
+              {/* `w-full` + `max-w-0`: la celda se queda con el ancho que
+                  sobra y trunca, en vez de empujar la tabla fuera de su
+                  contenedor con el título más largo. */}
+              <Td className="w-full max-w-0 p-0">
                 <button
                   ref={(element) => {
                     rowButtons.current[index] = element;
@@ -161,23 +164,28 @@ export function IncidentsTable({
                 <StatusBadge status={incident.status} />
               </Td>
 
-              <Td className="hidden whitespace-nowrap lg:table-cell">
+              <Td className="hidden whitespace-nowrap 2xl:table-cell">
                 {CATEGORY_META[incident.category].label}
               </Td>
 
-              <Td className="hidden whitespace-nowrap xl:table-cell">{incident.assignee}</Td>
+              <Td className="hidden whitespace-nowrap 3xl:table-cell">
+                <span className="flex items-center gap-2">
+                  <Avatar name={incident.assignee} size="xs" />
+                  {incident.assignee}
+                </span>
+              </Td>
 
               <Td className="whitespace-nowrap">
-                <time dateTime={incident.detectedAt} title={formatLongDateTime(incident.detectedAt)}>
+                <time
+                  dateTime={incident.detectedAt}
+                  title={formatLongDateTime(incident.detectedAt)}
+                >
                   {formatRelativeTime(incident.detectedAt)}
                 </time>
               </Td>
 
               <Td className="w-8 text-right">
-                <ChevronRight
-                  aria-hidden="true"
-                  className="size-4 text-text-muted"
-                />
+                <ChevronRight aria-hidden="true" className="size-4 text-text-muted" />
               </Td>
             </Tr>
           );

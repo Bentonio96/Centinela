@@ -19,7 +19,10 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 
   return (
     <span className="inline-flex items-center gap-1.5 text-xs whitespace-nowrap text-text-secondary">
-      <span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-pill', meta.dotClassName)} />
+      <span
+        aria-hidden="true"
+        className={cn('size-1.5 shrink-0 rounded-pill', meta.dotClassName)}
+      />
       {meta.label}
     </span>
   );

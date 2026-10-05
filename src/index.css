@@ -3,175 +3,261 @@
 /* ---------------------------------------------------------------------------
    Estrategia de tema
    ---------------------------------------------------------------------------
-   El producto es oscuro por defecto, así que los tokens oscuros viven en
-   `:root` y el tema claro es un override mediante la clase `.light` en <html>.
-   Esto evita el destello blanco inicial sin necesidad de un script bloqueante:
-   sin JavaScript la app ya se ve como debe verse.
+   El producto es claro por defecto: una ventana de superficies casi blancas
+   flotando sobre un fondo verde bosque. Los tokens claros viven en `:root` y el
+   tema oscuro es un override con la clase `.dark` en <html>, así sin
+   JavaScript la app ya se ve como debe verse.
 
-   `light:` queda disponible como variante para los pocos casos que no se
-   resuelven con tokens.
+   El acento es una segunda dimensión, independiente del tema: `data-accent` en
+   <html> reemplaza la escala `--brand-*` y todo lo que deriva de ella —botones,
+   series, fondo, patrones— se re-tiñe sin tocar un solo componente.
 --------------------------------------------------------------------------- */
-@custom-variant light (&:where(.light, .light *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  color-scheme: dark;
-
-  /* Superficies, de la más profunda a la más elevada */
-  --surface-sunken: oklch(0.15 0.011 264);
-  --surface-base: oklch(0.185 0.012 264);
-  --surface-raised: oklch(0.222 0.013 264);
-  --surface-overlay: oklch(0.252 0.014 264);
-  --surface-hover: oklch(0.275 0.015 264);
-
-  /* Bordes */
-  --border-subtle: oklch(0.3 0.014 264);
-  --border-strong: oklch(0.42 0.017 264);
-
-  /* Texto */
-  --text-primary: oklch(0.965 0.003 264);
-  --text-secondary: oklch(0.775 0.011 264);
-  --text-muted: oklch(0.615 0.014 264);
-
-  /* Acento: azul de instrumentación, usado en foco, selección y serie principal */
-  --accent: oklch(0.7 0.145 245);
-  --accent-hover: oklch(0.755 0.145 245);
-  --accent-soft: oklch(0.34 0.075 245);
-  --accent-contrast: oklch(0.16 0.01 264);
-
-  /* Severidad. Cada nivel tiene primer plano, fondo y borde propios para que
-     los badges mantengan contraste sobre cualquier superficie. */
-  --severity-critical: oklch(0.7 0.19 21);
-  --severity-critical-bg: oklch(0.31 0.088 21);
-  --severity-critical-border: oklch(0.44 0.13 21);
-
-  --severity-high: oklch(0.755 0.155 52);
-  --severity-high-bg: oklch(0.32 0.075 52);
-  --severity-high-border: oklch(0.45 0.11 52);
-
-  --severity-medium: oklch(0.83 0.13 90);
-  --severity-medium-bg: oklch(0.32 0.06 90);
-  --severity-medium-border: oklch(0.45 0.09 90);
-
-  /* Desplazada hacia el gris azulado y lejos del acento: antes compartían tono
-     casi exacto y el punto de "Baja" se confundía con el color de foco. */
-  --severity-low: oklch(0.72 0.035 245);
-  --severity-low-bg: oklch(0.3 0.022 245);
-  --severity-low-border: oklch(0.42 0.03 245);
-
-  /* Estado del ciclo de vida */
-  --status-open: oklch(0.755 0.155 52);
-  --status-investigating: oklch(0.75 0.13 275);
-  --status-contained: oklch(0.79 0.115 200);
-  --status-resolved: oklch(0.77 0.15 152);
-
-  /* -------------------------------------------------------------------------
-     Capa atmosférica
-     -------------------------------------------------------------------------
-     Tres focos de luz fijos detrás de toda la aplicación. Son de croma bajo y
-     alfa muy pequeño a propósito: su trabajo es que el fondo deje de ser un
-     plano liso, no teñir la interfaz. Con alfa más alto los grises dejarían de
-     ser neutros y las severidades perderían su referencia de color.
-  ------------------------------------------------------------------------- */
-  --ambient-1: oklch(0.7 0.145 245 / 0.17);
-  --ambient-2: oklch(0.66 0.15 305 / 0.12);
-  --ambient-3: oklch(0.75 0.12 190 / 0.07);
-
-  /* Vidrio. La superficie es translúcida para que el fondo atmosférico se vea
-     a través, y el `highlight` dibuja el filo iluminado del borde superior. */
-  --glass-bg: oklch(0.225 0.013 264 / 0.66);
-  --glass-border: oklch(1 0 0 / 0.08);
-  --glass-highlight: oklch(1 0 0 / 0.17);
-  --glass-spot: oklch(0.72 0.15 245 / 0.1);
-
-  /* Halos semánticos de las tarjetas de indicador. */
-  --glow-accent: oklch(0.7 0.145 245 / 0.2);
-  --glow-critical: oklch(0.7 0.19 21 / 0.22);
-  --glow-high: oklch(0.755 0.155 52 / 0.2);
-  --glow-medium: oklch(0.83 0.13 90 / 0.18);
-  --glow-resolved: oklch(0.77 0.15 152 / 0.2);
-}
-
-.light {
   color-scheme: light;
 
-  --surface-sunken: oklch(0.955 0.004 264);
-  --surface-base: oklch(0.985 0.002 264);
-  --surface-raised: oklch(1 0 0);
-  --surface-overlay: oklch(1 0 0);
-  --surface-hover: oklch(0.965 0.005 264);
+  /* Marca: verde bosque. Cada paso tiene un trabajo, no es una rampa genérica. */
+  --brand-950: #041f10; /* base de las tarjetas oscuras */
+  --brand-900: #0d3a22; /* serie más oscura, hover del primario */
+  --brand-800: #135631; /* primario: botones, foco, títulos de acento */
+  --brand-700: #175834; /* arranque del degradado de la tarjeta destacada */
+  --brand-600: #1b7147; /* serie media, barras de progreso */
+  --brand-400: #5bbd89; /* serie clara, acento sobre oscuro */
+  --brand-200: #bfe3cf;
+  --brand-100: #dcefe3; /* fondo suave: chip activo, ítem de menú */
+  --brand-50: #eef6f1;
 
-  --border-subtle: oklch(0.9 0.006 264);
-  --border-strong: oklch(0.8 0.01 264);
+  /* Fondo exterior, del foco de luz arriba a la izquierda hacia el negro. */
+  --backdrop-a: #0b3a22;
+  --backdrop-b: #062011;
+  --backdrop-c: #01120a;
 
-  --text-primary: oklch(0.24 0.014 264);
-  --text-secondary: oklch(0.44 0.014 264);
-  /* Medido, no heredado del tema oscuro: a L 0.58 este gris se quedaba en
-     3.76:1 sobre `surface-sunken` —la cabecera de la tabla— y no alcanzaba el
-     4.5:1 de AA en ninguna superficie. A 0.53 pasa en las tres (4.63 / 5.06 /
-     5.28), que es lo mínimo aceptable para texto de 12px. */
-  --text-muted: oklch(0.53 0.013 264);
+  /* Superficies, de la más profunda a la más elevada */
+  --surface-shell: #edf0ed;
+  --surface-panel: #f3f5f2;
+  --surface-card: #fdfdfb;
+  --surface-sunken: #f0f2ef;
+  --surface-hover: #e8ece8;
+  --surface-overlay: #ffffff;
 
-  --accent: oklch(0.53 0.16 250);
-  --accent-hover: oklch(0.46 0.16 250);
-  --accent-soft: oklch(0.94 0.03 250);
-  --accent-contrast: oklch(0.99 0 0);
+  --border-subtle: #e3e7e3;
+  --border-strong: #c8d0ca;
 
-  --severity-critical: oklch(0.5 0.19 24);
-  --severity-critical-bg: oklch(0.955 0.028 24);
-  --severity-critical-border: oklch(0.86 0.07 24);
+  --text-primary: #131f18;
+  --text-secondary: #44534a;
+  /* Medido contra las tres superficies donde aparece: 5.0:1 sobre `sunken`,
+     que es la peor. Texto de 12px no puede bajar de 4.5:1. */
+  --text-muted: #5a6860;
 
-  --severity-high: oklch(0.52 0.14 48);
-  --severity-high-bg: oklch(0.96 0.03 62);
-  --severity-high-border: oklch(0.87 0.07 55);
+  --accent: var(--brand-800);
+  --accent-hover: var(--brand-900);
+  --accent-soft: var(--brand-100);
+  --accent-contrast: #ffffff;
+  /* Texto de acento sobre superficies claras: titulares y enlaces. */
+  --accent-text: var(--brand-800);
+  --focus-ring: var(--brand-600);
 
-  --severity-medium: oklch(0.52 0.1 78);
-  --severity-medium-bg: oklch(0.965 0.035 90);
-  --severity-medium-border: oklch(0.87 0.07 85);
+  /* Series de los gráficos, de la más pesada a la más liviana. */
+  --series-1: var(--brand-900);
+  --series-2: var(--brand-600);
+  --series-3: var(--brand-400);
+  --series-4: var(--brand-200);
+  --series-5: #e0a12a;
+  --series-6: #9aa6a0;
+  --hatch: #c5ccc7;
+  --grid-line: #e3e7e3;
 
-  --severity-low: oklch(0.48 0.028 250);
-  --severity-low-bg: oklch(0.96 0.008 250);
-  --severity-low-border: oklch(0.88 0.014 250);
+  /* Severidad. Semántica: no se re-tiñe con el acento. */
+  --severity-critical: #b3261e;
+  --severity-critical-bg: #fdeceb;
+  --severity-critical-border: #f0bfbb;
+  --severity-critical-solid: #d4373b;
 
-  --status-open: oklch(0.52 0.14 48);
-  --status-investigating: oklch(0.5 0.15 278);
-  --status-contained: oklch(0.5 0.1 210);
-  --status-resolved: oklch(0.48 0.13 155);
+  --severity-high: #a04a07;
+  --severity-high-bg: #fdf0e1;
+  --severity-high-border: #f3d0a8;
 
-  --ambient-1: oklch(0.6 0.15 250 / 0.11);
-  --ambient-2: oklch(0.66 0.14 305 / 0.08);
-  --ambient-3: oklch(0.72 0.12 190 / 0.06);
+  --severity-medium: #7a5c00;
+  --severity-medium-bg: #fbf3d2;
+  --severity-medium-border: #ead894;
 
-  /* En claro la tarjeta es casi blanca, así que el vidrio se nota por lo que
-     deja pasar del fondo atmosférico, no por el desenfoque. */
-  --glass-bg: oklch(1 0 0 / 0.72);
-  --glass-border: oklch(0.5 0.02 264 / 0.14);
-  --glass-highlight: oklch(1 0 0 / 0.95);
-  --glass-spot: oklch(0.53 0.16 250 / 0.055);
+  --severity-low: #46607a;
+  --severity-low-bg: #ecf1f6;
+  --severity-low-border: #cdd8e3;
 
-  --glow-accent: oklch(0.53 0.16 250 / 0.14);
-  --glow-critical: oklch(0.5 0.19 24 / 0.14);
-  --glow-high: oklch(0.52 0.14 48 / 0.13);
-  --glow-medium: oklch(0.52 0.1 78 / 0.12);
-  --glow-resolved: oklch(0.48 0.13 155 / 0.13);
+  /* Estado del ciclo de vida */
+  --status-open: #a04a07;
+  --status-investigating: #3d4fb8;
+  --status-contained: #0c6b7e;
+  --status-resolved: #1b7147;
+
+  /* Tipos de evento del calendario: sólo el tono base; fondo y texto se
+     derivan con `color-mix` en `.event-chip`. */
+  --event-meeting: #1b7147;
+  --event-maintenance: #b7791f;
+  --event-review: #3d5bd9;
+  --event-deadline: #d4373b;
+  --event-drill: #7c4ddb;
+
+  /* Avatares: pasteles fijos con texto oscuro, iguales en ambos temas. */
+  --avatar-rose: #eecbca;
+  --avatar-mint: #d5e9d6;
+  --avatar-lavender: #d4d7f0;
+  --avatar-sand: #eee3c7;
+  --avatar-peach: #e8cbb9;
+  --avatar-sky: #cfe2ee;
+  --avatar-lilac: #e4d3ee;
+  --avatar-sage: #d9e2c8;
+  --avatar-ink: #2b3530;
+
+  --shadow-tint: 16 40 28;
+}
+
+/* Acentos alternativos. Sólo cambian la escala de marca y el fondo. */
+[data-accent='ocean'] {
+  --brand-950: #06142b;
+  --brand-900: #0c2855;
+  --brand-800: #173f86;
+  --brand-700: #1b4896;
+  --brand-600: #2660c2;
+  --brand-400: #6ea4ef;
+  --brand-200: #c2d7f7;
+  --brand-100: #dde8fb;
+  --brand-50: #eef4fd;
+  --backdrop-a: #0c2855;
+  --backdrop-b: #07162f;
+  --backdrop-c: #020815;
+  --shadow-tint: 16 28 52;
+}
+
+[data-accent='plum'] {
+  --brand-950: #1a0a2b;
+  --brand-900: #311456;
+  --brand-800: #4a2080;
+  --brand-700: #552791;
+  --brand-600: #6f39b6;
+  --brand-400: #a983e4;
+  --brand-200: #dbcaf5;
+  --brand-100: #eadffa;
+  --brand-50: #f5effc;
+  --backdrop-a: #311456;
+  --backdrop-b: #1a0a2b;
+  --backdrop-c: #0a0412;
+  --shadow-tint: 36 20 56;
+}
+
+[data-accent='ember'] {
+  --brand-950: #2a0e05;
+  --brand-900: #4d1c0a;
+  --brand-800: #7a2c12;
+  --brand-700: #8a3316;
+  --brand-600: #b0481d;
+  --brand-400: #ef9661;
+  --brand-200: #f8d2bc;
+  --brand-100: #fbe4d7;
+  --brand-50: #fdf2eb;
+  --backdrop-a: #4d1c0a;
+  --backdrop-b: #2a0e05;
+  --backdrop-c: #110502;
+  --shadow-tint: 52 24 12;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Las superficies oscuras se mezclan desde la marca para que el re-teñido
+     del acento también llegue aquí, en vez de dejar un negro verdoso fijo
+     debajo de un acento azul. */
+  --surface-shell: color-mix(in oklab, var(--brand-950) 55%, #050706);
+  --surface-panel: color-mix(in oklab, var(--brand-950) 62%, #0d1210);
+  --surface-card: color-mix(in oklab, var(--brand-950) 50%, #19211d);
+  --surface-sunken: color-mix(in oklab, var(--brand-950) 58%, #111714);
+  --surface-hover: color-mix(in oklab, var(--brand-900) 45%, #1f2823);
+  --surface-overlay: color-mix(in oklab, var(--brand-950) 45%, #1d2622);
+
+  --border-subtle: color-mix(in oklab, var(--brand-400) 11%, #1c2420);
+  --border-strong: color-mix(in oklab, var(--brand-400) 24%, #26302b);
+
+  --text-primary: #ecf3ee;
+  --text-secondary: #b7c5bc;
+  --text-muted: #93a399;
+
+  --accent: var(--brand-600);
+  --accent-hover: color-mix(in oklab, var(--brand-600) 82%, white);
+  --accent-soft: color-mix(in oklab, var(--brand-600) 30%, var(--surface-card));
+  --accent-text: var(--brand-400);
+  --focus-ring: var(--brand-400);
+
+  /* Sobre oscuro la jerarquía se invierte: la serie más pesada es la más
+     clara, porque el verde casi negro se perdería contra la tarjeta. */
+  --series-1: var(--brand-200);
+  --series-2: var(--brand-400);
+  --series-3: var(--brand-600);
+  --series-4: color-mix(in oklab, var(--brand-600) 55%, var(--surface-card));
+  --series-5: #e6b04a;
+  --series-6: #7d8a83;
+  --hatch: color-mix(in oklab, var(--brand-400) 30%, #323c37);
+  --grid-line: color-mix(in oklab, var(--brand-400) 12%, #1c2420);
+
+  --severity-critical: #ff9189;
+  --severity-critical-bg: #3a1614;
+  --severity-critical-border: #6d2a27;
+  --severity-critical-solid: #e5484d;
+
+  --severity-high: #ffb672;
+  --severity-high-bg: #38210d;
+  --severity-high-border: #694017;
+
+  --severity-medium: #ecd06a;
+  --severity-medium-bg: #30290d;
+  --severity-medium-border: #5a4c15;
+
+  --severity-low: #aabfd4;
+  --severity-low-bg: #1a2530;
+  --severity-low-border: #33475a;
+
+  --status-open: #ffb672;
+  --status-investigating: #a9b4ff;
+  --status-contained: #6ad3e4;
+  --status-resolved: #74d6a3;
+
+  --event-meeting: #5bbd89;
+  --event-maintenance: #e6b04a;
+  --event-review: #8ea3ff;
+  --event-deadline: #ff8a84;
+  --event-drill: #b99cff;
+
+  --shadow-tint: 0 0 0;
 }
 
 /* ---------------------------------------------------------------------------
    Design tokens expuestos a Tailwind
    ---------------------------------------------------------------------------
    `@theme inline` emite `var(--token)` en lugar de copiar el valor, que es lo
-   que permite que las mismas utilidades (`bg-surface-raised`,
-   `text-severity-critical`, …) cambien de tema sin duplicar clases.
+   que permite que las mismas utilidades (`bg-surface-card`, `text-accent-text`)
+   cambien de tema y de acento sin duplicar clases.
 --------------------------------------------------------------------------- */
 @theme inline {
+  --color-brand-950: var(--brand-950);
+  --color-brand-900: var(--brand-900);
+  --color-brand-800: var(--brand-800);
+  --color-brand-700: var(--brand-700);
+  --color-brand-600: var(--brand-600);
+  --color-brand-400: var(--brand-400);
+  --color-brand-200: var(--brand-200);
+  --color-brand-100: var(--brand-100);
+  --color-brand-50: var(--brand-50);
+
+  --color-surface-shell: var(--surface-shell);
+  --color-surface-panel: var(--surface-panel);
+  --color-surface-card: var(--surface-card);
   --color-surface-sunken: var(--surface-sunken);
-  --color-surface-base: var(--surface-base);
-  --color-surface-raised: var(--surface-raised);
-  --color-surface-overlay: var(--surface-overlay);
   --color-surface-hover: var(--surface-hover);
+  --color-surface-overlay: var(--surface-overlay);
 
   --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
-  --color-border-glass: var(--glass-border);
 
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
@@ -181,10 +267,20 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
   --color-accent-contrast: var(--accent-contrast);
+  --color-accent-text: var(--accent-text);
+
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
+  --color-series-6: var(--series-6);
+  --color-hatch: var(--hatch);
 
   --color-severity-critical: var(--severity-critical);
   --color-severity-critical-bg: var(--severity-critical-bg);
   --color-severity-critical-border: var(--severity-critical-border);
+  --color-severity-critical-solid: var(--severity-critical-solid);
   --color-severity-high: var(--severity-high);
   --color-severity-high-bg: var(--severity-high-bg);
   --color-severity-high-border: var(--severity-high-border);
@@ -199,58 +295,71 @@
   --color-status-investigating: var(--status-investigating);
   --color-status-contained: var(--status-contained);
   --color-status-resolved: var(--status-resolved);
+
+  --color-avatar-rose: var(--avatar-rose);
+  --color-avatar-mint: var(--avatar-mint);
+  --color-avatar-lavender: var(--avatar-lavender);
+  --color-avatar-sand: var(--avatar-sand);
+  --color-avatar-peach: var(--avatar-peach);
+  --color-avatar-sky: var(--avatar-sky);
+  --color-avatar-lilac: var(--avatar-lilac);
+  --color-avatar-sage: var(--avatar-sage);
+  --color-avatar-ink: var(--avatar-ink);
+
+  /* Sombras teñidas con la marca: una sombra gris neutra sobre superficies
+     verdosas se lee sucia. */
+  --shadow-card: 0 1px 2px rgb(var(--shadow-tint) / 0.04), 0 8px 22px -14px rgb(var(--shadow-tint) / 0.16);
+  --shadow-lift: 0 2px 4px rgb(var(--shadow-tint) / 0.06), 0 18px 36px -18px rgb(var(--shadow-tint) / 0.32);
+  --shadow-popover: 0 4px 10px rgb(var(--shadow-tint) / 0.08), 0 20px 44px -16px rgb(var(--shadow-tint) / 0.38);
+  --shadow-window: 0 40px 90px -30px rgb(0 0 0 / 0.65), 0 0 0 1px rgb(255 255 255 / 0.04);
 }
 
 @theme {
-  /* Tipografía. Inter con `tabular-nums` para que las métricas no bailen al
-     actualizarse; monoespaciada para IDs, IPs y marcas de tiempo. */
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Tipografía. Plus Jakarta Sans con `tabular-nums` para que las cifras no
+     bailen al actualizarse; monoespaciada para IDs, IPs y marcas de tiempo. */
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', 'Roboto Mono', monospace;
 
-  /* Escala de espaciado semántica sobre la base de 0.25rem de Tailwind.
-     Densidad de herramienta: las celdas son más bajas que el default. */
-  --spacing-gutter: 1.5rem;
-  --spacing-gutter-sm: 1rem;
+  /* Escala de espaciado semántica sobre la base de 0.25rem de Tailwind. */
+  --spacing-gutter: 1.25rem;
+  --spacing-gutter-sm: 0.875rem;
   --spacing-cell-x: 0.875rem;
-  --spacing-cell-y: 0.625rem;
-  --spacing-panel: 26rem;
+  --spacing-cell-y: 0.6875rem;
+  --spacing-panel: 27rem;
+  --spacing-sidebar: 15rem;
 
-  /* Radios */
-  --radius-control: 0.375rem;
-  --radius-card: 0.75rem;
+  /* Un corte más allá de `2xl`. La barra lateral se come 15rem, así que la
+     tabla no tiene sitio para todas sus columnas hasta bien pasado el 1536. */
+  --breakpoint-3xl: 110rem;
+
+  /* Radios: cuanto más grande el contenedor, más redondo. */
+  --radius-control: 0.75rem;
+  --radius-card: 1.125rem;
+  --radius-panel: 1.375rem;
+  --radius-window: 1.75rem;
   --radius-pill: 9999px;
 
-  /* Desenfoque del vidrio. Un solo valor: mezclar intensidades hace que unas
-     superficies parezcan más cercanas que otras sin ninguna razón. */
-  --blur-glass: 18px;
-
-  /* Sombras contenidas: sólo las capas flotantes se despegan del fondo. */
-  --shadow-panel: -12px 0 32px -12px oklch(0 0 0 / 0.45);
-  --shadow-popover: 0 4px 16px -4px oklch(0 0 0 / 0.35);
-  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.06), 0 8px 24px -16px oklch(0 0 0 / 0.4);
-  --shadow-lift: 0 2px 4px oklch(0 0 0 / 0.07), 0 16px 36px -18px oklch(0 0 0 / 0.55);
-
-  /* Curva única para todo lo que entra en pantalla: sale rápido y frena. Sin
-     rebote, que es lo que separa una herramienta de una presentación. */
+  /* Curva única para todo lo que entra en pantalla: sale rápido y frena. */
   --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Entrada del panel lateral. */
-  --animate-panel-in: panel-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
-  --animate-toast-in: toast-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
-  --animate-halo: halo 2.6s ease-in-out infinite;
+  --animate-panel-in: panel-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-modal-in: modal-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-toast-in: toast-in 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-pop-in: pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-halo: halo 2.4s ease-in-out infinite;
 
   @keyframes panel-in {
     from {
-      transform: translateX(1.25rem);
+      transform: translateX(1.5rem);
       opacity: 0;
     }
     to {
-      transform: translateX(0);
+      transform: none;
       opacity: 1;
     }
   }
 
-  @keyframes toast-in {
+  @keyframes modal-in {
     from {
       transform: translateY(0.75rem) scale(0.97);
       opacity: 0;
@@ -261,15 +370,66 @@
     }
   }
 
-  /* Entrada escalonada de los bloques del tablero. */
+  @keyframes toast-in {
+    from {
+      transform: translateY(1rem) scale(0.96);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      transform: translateY(-0.25rem) scale(0.98);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
+  /* Entrada escalonada de los bloques de cada vista. */
   @keyframes rise-in {
     from {
       opacity: 0;
-      transform: translateY(0.75rem);
+      transform: translateY(0.875rem) scale(0.985);
     }
     to {
       opacity: 1;
       transform: none;
+    }
+  }
+
+  /* Las barras y los medidores crecen desde su base al montarse. */
+  @keyframes grow-y {
+    from {
+      transform: scaleY(0.08);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  @keyframes grow-x {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  /* Trazo de los arcos y las líneas: se dibujan en vez de aparecer. */
+  @keyframes draw {
+    from {
+      stroke-dashoffset: var(--draw-length, 1);
+    }
+    to {
+      stroke-dashoffset: 0;
     }
   }
 
@@ -287,12 +447,12 @@
   @keyframes halo {
     0%,
     100% {
-      opacity: 0.4;
+      opacity: 0.35;
       transform: scale(1);
     }
     50% {
-      opacity: 0.9;
-      transform: scale(1.35);
+      opacity: 0.85;
+      transform: scale(1.9);
     }
   }
 }
@@ -303,130 +463,153 @@
   }
 
   body {
-    background-color: var(--surface-base);
-    /* Los tres focos atmosféricos. `fixed` los ancla al viewport: si
-       scrollearan, el degradado se leería como contenido en movimiento en
-       lugar de como iluminación de la escena. */
+    min-height: 100dvh;
+    background-color: var(--backdrop-c);
+    /* Un foco de luz arriba a la izquierda sobre un degradado diagonal.
+       `fixed` lo ancla al viewport: si scrolleara, se leería como contenido
+       en movimiento en lugar de como iluminación de la escena. */
     background-image:
-      radial-gradient(58rem 34rem at 8% -6%, var(--ambient-1), transparent 68%),
-      radial-gradient(46rem 30rem at 96% 4%, var(--ambient-2), transparent 66%),
-      radial-gradient(52rem 40rem at 50% 108%, var(--ambient-3), transparent 70%);
+      radial-gradient(70rem 46rem at 4% -8%, var(--backdrop-a), transparent 72%),
+      linear-gradient(155deg, var(--backdrop-b), var(--backdrop-c) 70%);
     background-attachment: fixed;
     background-repeat: no-repeat;
     color: var(--text-primary);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Foco visible y consistente en toda la app, separado de la superficie para
-     que se lea también sobre fondos claros. */
+  /* Foco visible y consistente en toda la app. */
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
-    border-radius: var(--radius-control);
+  }
+
+  /* Los titulares llevan el interletrado apretado de la referencia. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
   }
 
   /* Los números de métricas y de tabla se alinean en columna. */
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+
+  ::selection {
+    background-color: var(--brand-200);
+    color: var(--brand-950);
+  }
+
+  dialog {
+    color: inherit;
+  }
 }
 
 @layer components {
   /* -------------------------------------------------------------------------
-     Superficie de vidrio
+     Tarjeta destacada
      -------------------------------------------------------------------------
-     Fondo translúcido más desenfoque de lo que hay detrás. El `saturate`
-     compensa que el desenfoque apaga el color del fondo atmosférico.
+     La única superficie de color pleno de cada vista. Lleva el dato que manda
+     en la pantalla, y por eso sólo hay una: dos tarjetas destacadas son cero.
   ------------------------------------------------------------------------- */
-  .surface-glass {
-    position: relative;
-    background-color: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    backdrop-filter: blur(var(--blur-glass)) saturate(1.5);
-    -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.5);
-  }
-
-  /* El filo iluminado del borde superior: es lo que hace leer la tarjeta como
-     un objeto físico con una luz encima. La máscara vacía el relleno y deja
-     sólo el contorno de 1px, así el degradado sigue el radio de las esquinas
-     en vez de cortarse en recto. */
-  .surface-glass::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(to bottom, var(--glass-highlight), transparent 42%);
-    mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    mask-composite: exclude;
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    pointer-events: none;
+  .surface-hero {
+    background-image:
+      radial-gradient(120% 90% at 100% 0%, rgb(255 255 255 / 0.1), transparent 60%),
+      linear-gradient(140deg, var(--brand-700), var(--brand-800) 45%, var(--brand-900));
+    color: #ffffff;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.14),
+      0 14px 28px -18px rgb(var(--shadow-tint) / 0.7);
   }
 
   /* -------------------------------------------------------------------------
-     Foco que sigue al cursor
+     Tarjeta oscura con anillos
      -------------------------------------------------------------------------
-     `--spot-x` y `--spot-y` los escribe `useSpotlight` directamente sobre el
-     estilo del nodo, sin pasar por el estado de React: un `mousemove` que
-     provocara render sería trabajo inútil sesenta veces por segundo.
+     Curvas concéntricas que nacen fuera de la esquina inferior derecha. Son
+     textura, no dato: alfa bajo para que el texto encima no pelee con ellas.
   ------------------------------------------------------------------------- */
-  .spotlight::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: radial-gradient(
-      16rem circle at var(--spot-x, 50%) var(--spot-y, 0%),
-      var(--glass-spot),
-      transparent 62%
+  .surface-rings {
+    background-color: var(--brand-950);
+    background-image:
+      repeating-radial-gradient(
+        circle at 112% 128%,
+        transparent 0 15px,
+        color-mix(in oklab, var(--brand-400) 20%, transparent) 15px 16px
+      ),
+      radial-gradient(90% 90% at 100% 100%, color-mix(in oklab, var(--brand-600) 55%, transparent), transparent 70%),
+      linear-gradient(160deg, var(--brand-900), var(--brand-950) 70%);
+    color: #ffffff;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+
+  /* -------------------------------------------------------------------------
+     Rayado
+     -------------------------------------------------------------------------
+     Significa siempre lo mismo: "esto todavía no es un dato firme". Proyección
+     en las barras, plazo vencido en el medidor. Se distingue por forma, no
+     sólo por color, así que sobrevive a una impresión en grises.
+  ------------------------------------------------------------------------- */
+  .hatch {
+    background-color: color-mix(in oklab, var(--hatch) 22%, transparent);
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--hatch) 0 1.5px,
+      transparent 1.5px 6px
     );
-    opacity: 0;
-    transition: opacity 260ms var(--ease-out-soft);
-    pointer-events: none;
   }
 
-  .spotlight[data-spot='on']::after {
-    opacity: 1;
+  /* Chip teñido. Recibe `--tint` con el tono base y deriva fondo, borde y
+     texto, para no mantener tres tokens por cada tipo de evento o estado. */
+  .tint-chip {
+    background-color: color-mix(in oklab, var(--tint) 13%, var(--surface-card));
+    border-color: color-mix(in oklab, var(--tint) 34%, var(--surface-card));
+    color: color-mix(in oklab, var(--tint) 74%, var(--text-primary));
   }
 
-  /* Entrada escalonada. Sin `prefers-reduced-motion` el bloque de abajo anula
-     duración y retardo, y `forwards` deja el elemento en su estado final: la
-     página aparece completa, sin movimiento y sin huecos invisibles. */
+  /* El mismo tono derivado, sólo como color de texto. */
+  .tint-text {
+    color: color-mix(in oklab, var(--tint) 74%, var(--text-primary));
+  }
+
+  /* Entrada escalonada. Con `prefers-reduced-motion` el bloque de abajo anula
+     duración y retardo, y `backwards` no deja nada invisible. */
   .rise {
-    opacity: 0;
-    animation: rise-in 520ms var(--ease-out-soft) var(--rise-delay, 0ms) forwards;
+    animation: rise-in 560ms var(--ease-out-soft) var(--rise-delay, 0ms) backwards;
   }
 
-  /* Barrido de luz sobre la fila que acaba de entrar. Va como `background-image`
-     encima del color de resalte, así ambos conviven sin un nodo extra. */
+  .grow-y {
+    transform-origin: bottom;
+    animation: grow-y 700ms var(--ease-out-soft) var(--rise-delay, 0ms) backwards;
+  }
+
+  .grow-x {
+    transform-origin: left;
+    animation: grow-x 800ms var(--ease-out-soft) var(--rise-delay, 0ms) backwards;
+  }
+
+  .draw {
+    stroke-dasharray: var(--draw-length, 1);
+    animation: draw 900ms var(--ease-out-soft) var(--rise-delay, 0ms) backwards;
+  }
+
+  /* Barrido de luz sobre la fila que acaba de entrar. */
   .row-arrival {
     background-image: linear-gradient(
       100deg,
       transparent 34%,
-      var(--glass-highlight) 50%,
+      color-mix(in oklab, var(--brand-400) 35%, transparent) 50%,
       transparent 66%
     );
     background-size: 220% 100%;
     animation: row-sweep 1.1s var(--ease-out-soft);
   }
 
-  /* Texto con relleno degradado. Sólo para cifras y titulares cortos: en un
-     párrafo el degradado se come el contraste de las líneas bajas. */
-  .text-gradient {
-    background-image: linear-gradient(
-      135deg,
-      var(--text-primary) 10%,
-      var(--gradient-to, var(--accent)) 130%
-    );
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
+  /* Barras de desplazamiento discretas dentro de la ventana. */
+  .scroll-area {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
   }
 }
 
@@ -436,8 +619,8 @@
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    /* Sin esto, un bloque con 400ms de retardo seguiría invisible ese tiempo
-       aunque su animación ya no dure nada. */
+    /* Sin esto, un bloque con 400ms de retardo seguiría en su fotograma
+       inicial ese tiempo aunque su animación ya no dure nada. */
     animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
   }

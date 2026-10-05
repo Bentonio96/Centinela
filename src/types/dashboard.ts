@@ -1,13 +1,20 @@
 /**
  * Tipos de la capa de presentación: filtros, orden y las formas de datos que
- * consumen las métricas y los gráficos. Separados de `incident.ts` porque
- * describen cómo se *mira* el dominio, no el dominio en sí.
+ * consumen las métricas. Separados de `incident.ts` porque describen cómo se
+ * *mira* el dominio, no el dominio en sí.
  */
 
 import type { IncidentCategory, IncidentStatus, Severity } from './incident';
 
 /** Columnas por las que se puede ordenar la tabla. */
-export const SORTABLE_COLUMNS = ['id', 'title', 'severity', 'status', 'category', 'detectedAt'] as const;
+export const SORTABLE_COLUMNS = [
+  'id',
+  'title',
+  'severity',
+  'status',
+  'category',
+  'detectedAt',
+] as const;
 export type SortableColumn = (typeof SORTABLE_COLUMNS)[number];
 
 export type SortDirection = 'asc' | 'desc';
@@ -27,25 +34,23 @@ export interface IncidentFilters {
   readonly search: string;
   readonly severities: readonly Severity[];
   /**
-   * Emitida al hacer clic en una barra del gráfico o elegida en el selector.
-   *
    * Es de selección única, a diferencia de la severidad: filtrar por "crítica
    * y alta" a la vez es triaje corriente, filtrar por "malware y DDoS" a la vez
-   * casi nunca lo es. Mantenerla única deja que el gráfico y el selector
-   * muestren siempre lo mismo, sin estados intermedios que reconciliar.
+   * casi nunca lo es.
    */
   readonly category: IncidentCategory | null;
-  /** Día concreto `YYYY-MM-DD`, emitido al hacer clic en el gráfico de línea. */
+  /** Día concreto `YYYY-MM-DD`, emitido desde el panel o el calendario. */
   readonly day: string | null;
   /**
-   * Estados del ciclo de vida, emitidos al pulsar una tarjeta de indicador.
-   *
-   * Es de selección múltiple porque el caso que importa —"sin resolver"— son
-   * tres estados a la vez, no uno. No tiene control propio en la barra de
-   * filtros: se activa desde los indicadores, que son botones y por tanto
-   * alcanzables con el teclado, y se quita desde su chip.
+   * Estados del ciclo de vida. Es de selección múltiple porque el caso que
+   * importa —"sin resolver"— son tres estados a la vez, no uno.
    */
   readonly statuses: readonly IncidentStatus[];
+  /**
+   * Analista responsable, emitido desde la vista de equipo o el atajo
+   * "Mis casos". Es un nombre del catálogo de analistas, no texto libre.
+   */
+  readonly assignee: string | null;
 }
 
 /**
@@ -63,7 +68,7 @@ export interface MetricDelta {
   readonly absolute: number;
 }
 
-/** Las cuatro métricas de la fila superior. */
+/** Las cuatro métricas de la fila superior del panel. */
 export interface DashboardMetrics {
   readonly openIncidents: number;
   readonly criticalIncidents: number;
@@ -77,39 +82,4 @@ export interface DashboardMetrics {
     readonly meanTimeToResolveHours: MetricDelta;
     readonly resolvedThisWeek: MetricDelta;
   };
-}
-
-/** Un punto del gráfico de línea: un día del período observado. */
-export interface TrendPoint {
-  /** Fecha `YYYY-MM-DD`, usada como clave y para el eje X. */
-  readonly date: string;
-  /** Etiqueta corta ya formateada para el eje: "14 ago". */
-  readonly label: string;
-  readonly total: number;
-  readonly critical: number;
-}
-
-/** Una barra del gráfico de categorías. */
-export interface CategoryDatum {
-  readonly category: IncidentCategory;
-  /** Etiqueta completa, para el tooltip: "Denegación de servicio". */
-  readonly label: string;
-  /** Versión corta para el eje, donde el espacio manda: "DDoS". */
-  readonly shortLabel: string;
-  readonly total: number;
-  readonly critical: number;
-}
-
-/**
- * Serie corta por métrica, para el sparkline de cada tarjeta.
- *
- * Un porcentaje da la dirección pero no la forma: no distingue una subida
- * sostenida durante un mes de un pico de ayer sobre un mes plano. Son la misma
- * cifra y no significan lo mismo.
- */
-export interface MetricSparklines {
-  readonly openIncidents: readonly number[];
-  readonly criticalIncidents: readonly number[];
-  readonly meanTimeToResolveHours: readonly number[];
-  readonly resolvedThisWeek: readonly number[];
 }

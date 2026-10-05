@@ -21,3 +21,11 @@ export function isTypingTarget(target: EventTarget | null): boolean {
 export function hasModifier(event: KeyboardEvent): boolean {
   return event.ctrlKey || event.metaKey || event.altKey;
 }
+
+/**
+ * Cómo se dibuja el atajo de la paleta de comandos.
+ * Sólo cambia la etiqueta: el atajo en sí acepta Ctrl y ⌘ en cualquier sistema.
+ */
+export const PALETTE_SHORTCUT_LABEL: string = /Mac|iPhone|iPad/u.test(navigator.platform)
+  ? '⌘K'
+  : 'Ctrl K';
