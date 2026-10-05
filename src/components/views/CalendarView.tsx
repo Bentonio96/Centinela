@@ -98,7 +98,7 @@ function EventRow({ event }: { readonly event: CalendarEvent }) {
 
   return (
     <li
-      className="flex gap-3 rounded-control bg-surface-sunken py-2.5 pr-3 pl-0 dark:bg-surface-hover"
+      className="flex gap-3 rounded-control bg-surface-sunken py-2.5 pr-3 pl-0"
       style={cssVars({ '--tint': meta.color })}
     >
       <span aria-hidden="true" className="w-1 shrink-0 rounded-r-pill bg-(--tint)" />
@@ -244,7 +244,7 @@ export function CalendarView({ incidents, now, settings, actions, headingRef }: 
                             className={cn(
                               'flex h-18 w-full flex-col gap-1 rounded-control p-1.5 text-left transition-colors sm:h-24',
                               day.inMonth
-                                ? 'bg-surface-sunken hover:bg-surface-hover dark:bg-surface-panel'
+                                ? 'bg-surface-sunken hover:bg-surface-hover'
                                 : 'bg-transparent hover:bg-surface-sunken',
                               isSelected && 'ring-2 ring-accent ring-inset',
                             )}
@@ -345,7 +345,7 @@ export function CalendarView({ incidents, now, settings, actions, headingRef }: 
 
             <div className="px-4.5 pt-3 pb-4">
               {selectedEvents.length === 0 ? (
-                <p className="rounded-control bg-surface-sunken px-3 py-4 text-center text-sm text-text-muted dark:bg-surface-hover">
+                <p className="rounded-control bg-surface-sunken px-3 py-4 text-center text-sm text-text-muted">
                   Sin eventos agendados.
                 </p>
               ) : (

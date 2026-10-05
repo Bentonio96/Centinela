@@ -31,10 +31,7 @@ export function ProgressBar({ value, label, barClassName, className }: ProgressB
             'aria-valuenow': Math.round(clamped * 100),
           }
         : { 'aria-hidden': true })}
-      className={cn(
-        'h-1.5 overflow-hidden rounded-pill bg-surface-sunken dark:bg-surface-hover',
-        className,
-      )}
+      className={cn('h-1.5 overflow-hidden rounded-pill bg-surface-sunken', className)}
     >
       <div
         className={cn('grow-x h-full rounded-pill', barClassName ?? 'bg-brand-600')}

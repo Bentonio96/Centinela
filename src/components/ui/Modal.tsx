@@ -83,7 +83,7 @@ export function Modal({
         // `m-auto` explícito: el reset de Tailwind anula el margen automático
         // con el que el navegador centra un `dialog`.
         'm-auto max-h-[min(88dvh,46rem)] rounded-panel bg-surface-overlay p-0 text-text-primary shadow-popover',
-        'backdrop:bg-brand-950/55 backdrop:backdrop-blur-[3px] dark:ring-1 dark:ring-border-strong',
+        'backdrop:bg-brand-950/55 backdrop:backdrop-blur-[3px]',
         'open:flex open:flex-col motion-safe:open:animate-modal-in',
         SIZE_CLASSES[size],
       )}

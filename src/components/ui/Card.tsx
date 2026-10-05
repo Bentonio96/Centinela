@@ -2,8 +2,8 @@
  * Superficie contenedora: la baldosa del bento.
  *
  * Casi blanca sobre el panel gris verdoso, con un radio generoso y una sombra
- * corta. No hay borde en claro —el contraste de superficies basta— pero sí en
- * oscuro, donde dos verdes casi negros no se separan solos.
+ * corta. No lleva borde: el contraste entre las dos superficies basta para
+ * separarla, y una línea más alrededor de cada baldosa sólo añadiría ruido.
  */
 
 import type { ComponentPropsWithoutRef } from 'react';
@@ -28,7 +28,7 @@ export function Card({
   return (
     <Component
       className={cn(
-        'rounded-card bg-surface-card shadow-card dark:ring-1 dark:ring-border-subtle',
+        'rounded-card bg-surface-card shadow-card',
         interactive &&
           'transition-[transform,box-shadow] duration-200 ease-out-soft hover:-translate-y-0.5 hover:shadow-lift',
         className,

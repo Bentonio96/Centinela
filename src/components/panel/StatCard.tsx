@@ -75,9 +75,7 @@ export function StatCard({
     <article
       className={cn(
         'group relative flex min-h-34 flex-col rounded-card p-4 transition-[transform,box-shadow] duration-200 ease-out-soft hover:-translate-y-0.5',
-        hero
-          ? 'surface-hero'
-          : 'bg-surface-card shadow-card hover:shadow-lift dark:ring-1 dark:ring-border-subtle',
+        hero ? 'surface-hero' : 'bg-surface-card shadow-card hover:shadow-lift',
       )}
     >
       <div className="flex items-start justify-between gap-2">

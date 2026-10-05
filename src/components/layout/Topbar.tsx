@@ -1,6 +1,5 @@
 /**
- * Barra superior: la búsqueda global, los avisos, el tema y quién usa la
- * consola.
+ * Barra superior: la búsqueda global, los avisos y quién usa la consola.
  *
  * La "búsqueda" es un botón con forma de campo, no un campo. Abre la paleta de
  * comandos, que es donde de verdad se escribe: un `<input>` aquí que al
@@ -8,19 +7,16 @@
  * de pantalla anunciando un cuadro de texto en el que no se puede escribir.
  */
 
-import { Menu as MenuIcon, Moon, Search, Sun } from 'lucide-react';
+import { Menu as MenuIcon, Search } from 'lucide-react';
 
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
-import type { Theme } from '@/data/settings';
 import { findAnalyst } from '@/data/team';
 import { PALETTE_SHORTCUT_LABEL } from '@/lib/keyboard';
 import type { Incident } from '@/types';
 import { NotificationsMenu } from './NotificationsMenu';
 
 interface TopbarProps {
-  readonly theme: Theme;
-  readonly onToggleTheme: () => void;
   readonly onOpenPalette: () => void;
   /** Abre la navegación en pantallas donde la barra lateral no cabe. */
   readonly onOpenMenu: () => void;
@@ -34,8 +30,6 @@ interface TopbarProps {
 }
 
 export function Topbar({
-  theme,
-  onToggleTheme,
   onOpenPalette,
   onOpenMenu,
   onOpenProfile,
@@ -47,8 +41,6 @@ export function Topbar({
   onShowUnresolved,
 }: TopbarProps) {
   const analyst = findAnalyst(me);
-  const goingToDark = theme === 'light';
-  const ThemeIcon = goingToDark ? Moon : Sun;
 
   return (
     <header className="relative z-30 flex h-16 shrink-0 items-center gap-2 rounded-panel bg-surface-panel px-3">
@@ -66,7 +58,7 @@ export function Topbar({
         type="button"
         onClick={onOpenPalette}
         aria-keyshortcuts="Control+K Meta+K"
-        className="flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-pill bg-surface-card px-3.5 text-sm text-text-muted shadow-card transition-colors hover:text-text-secondary sm:max-w-sm dark:ring-1 dark:ring-border-subtle"
+        className="flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-pill bg-surface-card px-3.5 text-sm text-text-muted shadow-card transition-colors hover:text-text-secondary sm:max-w-sm"
       >
         <Search aria-hidden="true" className="size-4 shrink-0 text-text-secondary" />
         <span className="truncate">Buscar incidentes, personas y acciones</span>
@@ -95,16 +87,6 @@ export function Topbar({
           onOpenIncident={onOpenIncident}
           onShowAll={onShowUnresolved}
         />
-
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onToggleTheme}
-          aria-label={goingToDark ? 'Cambiar a tema oscuro' : 'Cambiar a tema claro'}
-          title={goingToDark ? 'Cambiar a tema oscuro' : 'Cambiar a tema claro'}
-        >
-          <ThemeIcon aria-hidden="true" className="size-4.5" />
-        </Button>
 
         <button
           type="button"

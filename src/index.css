@@ -1,21 +1,21 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------------------
-   Estrategia de tema
+   Un solo tema, y un acento
    ---------------------------------------------------------------------------
-   El producto es claro por defecto: una ventana de superficies casi blancas
-   flotando sobre un fondo verde bosque. Los tokens claros viven en `:root` y el
-   tema oscuro es un override con la clase `.dark` en <html>, así sin
-   JavaScript la app ya se ve como debe verse.
+   El producto es claro, siempre: una ventana de superficies casi blancas
+   flotando sobre un fondo verde bosque. No hay tema oscuro ni variante
+   `dark:`, así que no hay nada que un valor guardado, una preferencia del
+   sistema o un modo oscuro forzado del navegador puedan activar.
 
-   El acento es una segunda dimensión, independiente del tema: `data-accent` en
-   <html> reemplaza la escala `--brand-*` y todo lo que deriva de ella —botones,
-   series, fondo, patrones— se re-tiñe sin tocar un solo componente.
+   Lo que sí cambia es el acento: `data-accent` en <html> reemplaza la escala
+   `--brand-*` y todo lo que deriva de ella —botones, series, fondo, patrones—
+   se re-tiñe sin tocar un solo componente.
 --------------------------------------------------------------------------- */
-@custom-variant dark (&:where(.dark, .dark *));
-
 :root {
-  color-scheme: light;
+  /* `only`: sin esto, algunos navegadores oscurecen por su cuenta las páginas
+     que no declaran un tema oscuro propio. */
+  color-scheme: only light;
 
   /* Marca: verde bosque. Cada paso tiene un trabajo, no es una rampa genérica. */
   --brand-950: #041f10; /* base de las tarjetas oscuras */
@@ -23,7 +23,7 @@
   --brand-800: #135631; /* primario: botones, foco, títulos de acento */
   --brand-700: #175834; /* arranque del degradado de la tarjeta destacada */
   --brand-600: #1b7147; /* serie media, barras de progreso */
-  --brand-400: #5bbd89; /* serie clara, acento sobre oscuro */
+  --brand-400: #5bbd89; /* serie clara, acento sobre las tarjetas oscuras */
   --brand-200: #bfe3cf;
   --brand-100: #dcefe3; /* fondo suave: chip activo, ítem de menú */
   --brand-50: #eef6f1;
@@ -100,7 +100,7 @@
   --event-deadline: #d4373b;
   --event-drill: #7c4ddb;
 
-  /* Avatares: pasteles fijos con texto oscuro, iguales en ambos temas. */
+  /* Avatares: pasteles fijos con texto oscuro. */
   --avatar-rose: #eecbca;
   --avatar-mint: #d5e9d6;
   --avatar-lavender: #d4d7f0;
@@ -161,74 +161,6 @@
   --backdrop-b: #2a0e05;
   --backdrop-c: #110502;
   --shadow-tint: 52 24 12;
-}
-
-.dark {
-  color-scheme: dark;
-
-  /* Las superficies oscuras se mezclan desde la marca para que el re-teñido
-     del acento también llegue aquí, en vez de dejar un negro verdoso fijo
-     debajo de un acento azul. */
-  --surface-shell: color-mix(in oklab, var(--brand-950) 55%, #050706);
-  --surface-panel: color-mix(in oklab, var(--brand-950) 62%, #0d1210);
-  --surface-card: color-mix(in oklab, var(--brand-950) 50%, #19211d);
-  --surface-sunken: color-mix(in oklab, var(--brand-950) 58%, #111714);
-  --surface-hover: color-mix(in oklab, var(--brand-900) 45%, #1f2823);
-  --surface-overlay: color-mix(in oklab, var(--brand-950) 45%, #1d2622);
-
-  --border-subtle: color-mix(in oklab, var(--brand-400) 11%, #1c2420);
-  --border-strong: color-mix(in oklab, var(--brand-400) 24%, #26302b);
-
-  --text-primary: #ecf3ee;
-  --text-secondary: #b7c5bc;
-  --text-muted: #93a399;
-
-  --accent: var(--brand-600);
-  --accent-hover: color-mix(in oklab, var(--brand-600) 82%, white);
-  --accent-soft: color-mix(in oklab, var(--brand-600) 30%, var(--surface-card));
-  --accent-text: var(--brand-400);
-  --focus-ring: var(--brand-400);
-
-  /* Sobre oscuro la jerarquía se invierte: la serie más pesada es la más
-     clara, porque el verde casi negro se perdería contra la tarjeta. */
-  --series-1: var(--brand-200);
-  --series-2: var(--brand-400);
-  --series-3: var(--brand-600);
-  --series-4: color-mix(in oklab, var(--brand-600) 55%, var(--surface-card));
-  --series-5: #e6b04a;
-  --series-6: #7d8a83;
-  --hatch: color-mix(in oklab, var(--brand-400) 30%, #323c37);
-  --grid-line: color-mix(in oklab, var(--brand-400) 12%, #1c2420);
-
-  --severity-critical: #ff9189;
-  --severity-critical-bg: #3a1614;
-  --severity-critical-border: #6d2a27;
-  --severity-critical-solid: #e5484d;
-
-  --severity-high: #ffb672;
-  --severity-high-bg: #38210d;
-  --severity-high-border: #694017;
-
-  --severity-medium: #ecd06a;
-  --severity-medium-bg: #30290d;
-  --severity-medium-border: #5a4c15;
-
-  --severity-low: #aabfd4;
-  --severity-low-bg: #1a2530;
-  --severity-low-border: #33475a;
-
-  --status-open: #ffb672;
-  --status-investigating: #a9b4ff;
-  --status-contained: #6ad3e4;
-  --status-resolved: #74d6a3;
-
-  --event-meeting: #5bbd89;
-  --event-maintenance: #e6b04a;
-  --event-review: #8ea3ff;
-  --event-deadline: #ff8a84;
-  --event-drill: #b99cff;
-
-  --shadow-tint: 0 0 0;
 }
 
 /* ---------------------------------------------------------------------------

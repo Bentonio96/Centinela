@@ -434,7 +434,7 @@ export function AnalyticsView({ incidents, now, settings, actions, headingRef }:
                   </div>
                   <div
                     aria-hidden="true"
-                    className="mt-1.5 h-1.5 overflow-hidden rounded-pill bg-surface-sunken dark:bg-surface-hover"
+                    className="mt-1.5 h-1.5 overflow-hidden rounded-pill bg-surface-sunken"
                   >
                     <div
                       className="grow-x h-full rounded-pill bg-series-2"

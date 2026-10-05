@@ -254,7 +254,7 @@ export function CommandPalette({
       onClick={(event) => {
         if (event.target === dialogRef.current) close();
       }}
-      className="mx-auto mt-[10dvh] mb-auto max-h-[min(76dvh,34rem)] w-[min(94vw,38rem)] rounded-panel bg-surface-overlay p-0 text-text-primary shadow-popover backdrop:bg-brand-950/55 backdrop:backdrop-blur-[3px] open:flex open:flex-col motion-safe:open:animate-modal-in dark:ring-1 dark:ring-border-strong"
+      className="mx-auto mt-[10dvh] mb-auto max-h-[min(76dvh,34rem)] w-[min(94vw,38rem)] rounded-panel bg-surface-overlay p-0 text-text-primary shadow-popover backdrop:bg-brand-950/55 backdrop:backdrop-blur-[3px] open:flex open:flex-col motion-safe:open:animate-modal-in"
     >
       {open && (
         <>

@@ -4,9 +4,10 @@
  * Comprueba lo que ni el compilador ni el linter pueden ver: que las rutas
  * naveguen y el botón "atrás" deshaga, que un enlace viejo siga llegando a la
  * tabla filtrada, que el foco se atrape en un diálogo y vuelva a su origen,
- * que mover una tarjeta del tablero cambie los indicadores, que el acento y el
- * tema sobrevivan a una recarga, que el contraste alcance AA con los colores
- * ya resueltos y que el flujo en vivo no le robe el foco a nadie.
+ * que mover una tarjeta del tablero cambie los indicadores, que el acento
+ * sobreviva a una recarga, que la consola se pinte clara pase lo que pase, que
+ * el contraste alcance AA con los colores ya resueltos y que el flujo en vivo
+ * no le robe el foco a nadie.
  *
  * Uso (con el servidor de desarrollo levantado):
  *   npm run verify              -> sólo las comprobaciones
@@ -74,7 +75,7 @@ await open(page, '/')
 check('titulo de la pestana', await page.title(), 'Panel · Centinela')
 check('un solo h1', await page.locator('h1').count(), 1)
 check('h1 del panel', await heading(page), 'Panel')
-check('tema claro por defecto', await page.evaluate(() => document.documentElement.classList.contains('dark')), false)
+check('el panel se pinta claro', await page.evaluate(() => getComputedStyle(document.querySelector('main')).backgroundColor), 'rgb(243, 245, 242)')
 check('siete vistas en la navegacion', await page.getByRole('navigation', { name: 'Principal' }).getByRole('link').count(), 7)
 check('aria-current en Panel', await navLink(page, 'Panel').getAttribute('aria-current'), 'page')
 check('cuatro indicadores con variacion', await page.evaluate(() => {
@@ -363,21 +364,22 @@ await page.getByRole('tab', { name: 'Perfil', exact: true }).focus()
 await page.keyboard.press('ArrowDown')
 await page.keyboard.press('ArrowDown')
 check('las flechas cambian de pestana', await page.getByRole('tab', { name: 'Apariencia', exact: true }).getAttribute('aria-selected'), 'true')
+check('no hay selector de tema en los ajustes', await page.getByRole('button', { name: /^(Claro|Oscuro)$/ }).count(), 0)
 await page.getByRole('button', { name: 'Océano', exact: true }).click()
-await page.getByRole('button', { name: 'Oscuro', exact: true }).click()
 await page.getByRole('button', { name: 'Domingo', exact: true }).click()
 await page.waitForTimeout(200)
-check('acento y tema se aplican', await page.evaluate(() => [document.documentElement.dataset.accent, document.documentElement.classList.contains('dark')]), ['ocean', true])
+const accentColor = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--brand-800').trim())
+check('el acento se aplica', [await page.evaluate(() => document.documentElement.dataset.accent), await accentColor()], ['ocean', '#173f86'])
 await page.reload({ waitUntil: 'networkidle' })
 await page.waitForSelector('h1')
-check('acento y tema sobreviven a recargar', await page.evaluate(() => [document.documentElement.dataset.accent, document.documentElement.classList.contains('dark')]), ['ocean', true])
+check('el acento sobrevive a recargar', [await page.evaluate(() => document.documentElement.dataset.accent), await accentColor()], ['ocean', '#173f86'])
 await open(page, '/calendario')
 check('la semana empieza en domingo', await page.locator('main thead th').first().innerText().then((text) => text.toLowerCase()), 'dom')
 await open(page, '/ajustes')
 await page.getByRole('tab', { name: 'Datos', exact: true }).click()
 await page.getByRole('button', { name: 'Restablecer preferencias', exact: true }).click()
 await page.waitForTimeout(200)
-check('restablecer vuelve al acento y tema por defecto', await page.evaluate(() => [document.documentElement.dataset.accent ?? null, document.documentElement.classList.contains('dark')]), [null, false])
+check('restablecer vuelve al acento por defecto', [await page.evaluate(() => document.documentElement.dataset.accent ?? null), await accentColor()], [null, '#135631'])
 
 // ---------- Flujo en vivo ----------
 await open(page, '/')
@@ -404,31 +406,52 @@ check('sin errores de consola en escritorio', errors, [])
 await desktop.close()
 
 // ===========================================================================
-// Visitante de la version anterior
+// Siempre claro
 // ===========================================================================
-// La version de una sola pantalla guardaba `centinela:theme = 'dark'` en cada
-// visita, sin que nadie lo eligiera: era su valor por defecto. Quien vuelva
-// con esa clave tiene que ver el tema por defecto de hoy, no el de entonces.
-// Migrarla como si fuera una preferencia le abria la consola en oscuro a todo
-// el que hubiera entrado alguna vez.
-const returning = await browser.newContext({ viewport: { width: 1280, height: 800 } })
-const visitor = await returning.newPage()
+// La consola tiene un solo tema. Se comprueba contra todo lo que alguna vez
+// pudo oscurecerla, a la vez: el sistema en modo oscuro, la clave de tema de
+// la primera version, un `theme: 'dark'` guardado por la version intermedia
+// que si tenia selector, y la clase `dark` puesta a mano en <html>.
+//
+// No se mira una clase ni un atributo: se mide lo que de verdad se pinta. Que
+// <html> no lleve `.dark` no demuestra nada si algo mas tine la pagina.
+const paintedLight = (target) =>
+  target.evaluate(() => {
+    // Luminancia aproximada de un `rgb(...)` ya resuelto: 0 negro, 1 blanco.
+    const lightness = (element) => {
+      const [r, g, b] = getComputedStyle(element).backgroundColor.match(/[\d.]+/g).map(Number)
+      return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+    }
+    const ink = getComputedStyle(document.querySelector('h1')).color.match(/[\d.]+/g).map(Number)
+    const scheme = getComputedStyle(document.documentElement).colorScheme
+    return {
+      panelClaro: lightness(document.querySelector('main')) > 0.85,
+      tarjetaClara: lightness(document.querySelector('section[aria-labelledby="carga-titulo"]')) > 0.85,
+      textoOscuro: Math.max(...ink.slice(0, 3)) < 60,
+      soloClaro: scheme.includes('light') && scheme.includes('only') && !scheme.includes('dark'),
+    }
+  })
+const ALL_LIGHT = { panelClaro: true, tarjetaClara: true, textoOscuro: true, soloClaro: true }
+
+const darkSystem = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' })
+const visitor = await darkSystem.newPage()
 watch(visitor)
-// Solo en el primer documento: el guion se ejecuta en cada navegacion, y
-// volver a sembrar la clave tras recargar probaria otra cosa.
 await visitor.addInitScript(() => {
-  if (sessionStorage.getItem('sembrado') !== null) return
-  sessionStorage.setItem('sembrado', '1')
   localStorage.setItem('centinela:theme', 'dark')
+  localStorage.setItem('centinela:settings', JSON.stringify({ theme: 'dark', accent: 'forest' }))
 })
 await open(visitor, '/')
-check('la clave de tema antigua no impone el oscuro', await visitor.evaluate(() => document.documentElement.classList.contains('dark')), false)
+check('claro con el sistema en oscuro y un tema oscuro guardado', await paintedLight(visitor), ALL_LIGHT)
 check('la clave de tema antigua se borra', await visitor.evaluate(() => localStorage.getItem('centinela:theme')), null)
-await visitor.getByRole('button', { name: 'Cambiar a tema oscuro', exact: true }).click()
-await visitor.reload({ waitUntil: 'networkidle' })
-await visitor.waitForSelector('h1')
-check('elegir el oscuro de verdad si se recuerda', await visitor.evaluate(() => document.documentElement.classList.contains('dark')), true)
-await returning.close()
+await visitor.evaluate(() => document.documentElement.classList.add('dark'))
+check('claro aunque <html> lleve la clase dark', await paintedLight(visitor), ALL_LIGHT)
+check('no hay boton de cambio de tema', await visitor.getByRole('button', { name: /tema (claro|oscuro)/i }).count(), 0)
+await visitor.keyboard.press('Control+k')
+await visitor.keyboard.type('tema')
+await visitor.waitForTimeout(200)
+check('la paleta no ofrece cambiar de tema', await visitor.getByRole('option', { name: /tema (claro|oscuro)/i }).count(), 0)
+await visitor.keyboard.press('Escape')
+await darkSystem.close()
 
 // ===========================================================================
 // Contraste
@@ -458,12 +481,12 @@ const PAIRS = [
   ['--severity-high', '--surface-card'],
 ]
 
-async function contrastReport(theme, accent) {
+async function contrastReport(accent) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const probe = await context.newPage()
-  await probe.addInitScript(([theme, accent]) => {
-    localStorage.setItem('centinela:settings', JSON.stringify({ theme, accent }))
-  }, [theme, accent])
+  await probe.addInitScript((accent) => {
+    localStorage.setItem('centinela:settings', JSON.stringify({ accent }))
+  }, accent)
   await open(probe, '/')
 
   const report = await probe.evaluate((pairs) => {
@@ -498,13 +521,11 @@ async function contrastReport(theme, accent) {
   return report
 }
 
-for (const theme of ['light', 'dark']) {
-  for (const accent of ['forest', 'ocean', 'plum', 'ember']) {
-    const report = await contrastReport(theme, accent)
-    const failing = report.filter((entry) => entry.ratio < 4.5)
-    const worst = report.reduce((a, b) => (a.ratio <= b.ratio ? a : b))
-    check(`contraste AA · ${theme} / ${accent} (peor: ${worst.pair} = ${worst.ratio})`, failing.map((entry) => `${entry.pair} = ${entry.ratio}`), [])
-  }
+for (const accent of ['forest', 'ocean', 'plum', 'ember']) {
+  const report = await contrastReport(accent)
+  const failing = report.filter((entry) => entry.ratio < 4.5)
+  const worst = report.reduce((a, b) => (a.ratio <= b.ratio ? a : b))
+  check(`contraste AA · ${accent} (peor: ${worst.pair} = ${worst.ratio})`, failing.map((entry) => `${entry.pair} = ${entry.ratio}`), [])
 }
 
 // ===========================================================================
@@ -590,11 +611,7 @@ if (WITH_SHOTS) {
   await capture('paleta')
   await shot.keyboard.press('Escape')
 
-  await settings({ theme: 'dark' })
-  await open(shot, '/')
-  await capture('panel-oscuro')
-
-  await settings({ theme: 'light', accent: 'ocean' })
+  await settings({ accent: 'ocean' })
   await open(shot, '/analitica')
   await capture('acento-oceano')
   await shots.close()

@@ -9,7 +9,7 @@ forma determinista, y todo lo que se cambia vive en memoria.
 
 **[Ver la demo →](https://centinela-rho.vercel.app)**
 
-![Panel en tema claro](docs/panel-claro.png)
+![Panel](docs/panel-claro.png)
 
 ---
 
@@ -23,7 +23,7 @@ forma determinista, y todo lo que se cambia vive en memoria.
 | **Calendario** | Agenda del equipo —comités, mantenimientos, simulacros, vencimientos— cruzada con los incidentes de cada día |
 | **Analítica** | Ventana de 7, 14 o 30 días contra la anterior: detecciones, reparto por categoría y severidad, mapa de calor por hora y quién resuelve |
 | **Equipo** | Carga de cada analista, filtro por célula y perfil con sus casos |
-| **Ajustes** | Con qué analista se usa la consola, avisos, tema, acento y primer día de la semana |
+| **Ajustes** | Con qué analista se usa la consola, avisos, acento y primer día de la semana |
 
 Y por encima de todas: paleta de comandos (`Ctrl K` / `⌘K`), panel de detalle
 con cambio de estado y reasignación, registro manual de incidentes, informe de
@@ -63,7 +63,7 @@ Queda en `http://localhost:5173`.
 | `npm run preview` | Sirve el build de producción |
 | `npm run typecheck` | Sólo TypeScript |
 | `npm run lint` | oxlint |
-| `npm run verify` | 126 comprobaciones de UI sobre un navegador real |
+| `npm run verify` | 125 comprobaciones de UI sobre un navegador real |
 
 `npm run verify` necesita el servidor de desarrollo levantado y el navegador de
 Playwright instalado:
@@ -124,27 +124,24 @@ cada baldosa y por qué.
 Los tokens viven en [`src/index.css`](src/index.css). Tailwind v4 eliminó el
 archivo de configuración —la config *es* el CSS— así que están en dos bloques:
 `@theme inline`, que emite `var(--token)` en vez de copiar el valor, y `@theme`
-para lo que no depende del tema. No hay un solo color escrito a mano en un
+para lo que no cambia con el acento. No hay un solo color escrito a mano en un
 componente.
 
-### El acento es una dimensión aparte del tema
+### Un solo tema, y un acento que lo re-tiñe
 
-`data-accent` en `<html>` reemplaza la escala `--brand-*` y todo lo que deriva
-de ella —botones, series, fondo, patrones— se re-tiñe sin tocar un componente.
-Bosque, Océano, Ciruela y Brasa, combinables con claro y oscuro.
+La consola es clara, siempre. No hay tema oscuro ni variante `dark:`, así que
+no hay nada que un valor guardado en el navegador o el modo oscuro del sistema
+puedan activar; `color-scheme: only light` le pide además al navegador que no
+aplique el suyo.
+
+Lo que sí se elige es el acento. `data-accent` en `<html>` reemplaza la escala
+`--brand-*` y todo lo que deriva de ella —botones, series, fondo, patrones— se
+re-tiñe sin tocar un componente: Bosque, Océano, Ciruela y Brasa.
 
 ![Analítica con el acento Océano](docs/acento-oceano.png)
 
 Lo que **no** se re-tiñe es la severidad y el estado: son semánticos. Un
 crítico es rojo con cualquier acento.
-
-En oscuro las superficies se mezclan desde la marca con `color-mix`, para que
-el re-teñido también llegue ahí en vez de dejar un negro verdoso fijo debajo
-de un acento azul. Y la jerarquía de las series se invierte: la más pesada
-pasa a ser la más clara, porque el verde casi negro se perdería contra la
-tarjeta.
-
-![Panel en tema oscuro](docs/panel-oscuro.png)
 
 ### El color con significado es de la severidad y del estado
 
@@ -324,10 +321,9 @@ presente, que los lectores de pantalla anuncian igual.
   `aria-pressed`, porque recortan el mismo contenido en vez de cambiar de panel.
 - Menú del tablero con el patrón de botón de menú: flechas, `Home`/`End`,
   Escape devuelve el foco al disparador.
-- **El contraste se mide, no se estima.** La suite pinta cada color resuelto
-  —varios salen de `color-mix`— en un canvas de un píxel y calcula la razón
-  real, en los dos temas y los cuatro acentos: 29 pares por combinación, todos
-  sobre 4.5:1. Peor caso actual: 4.77:1.
+- **El contraste se mide, no se estima.** La suite pinta cada color ya
+  resuelto en un canvas de un píxel y calcula la razón real, con los cuatro
+  acentos: 29 pares por acento, todos sobre 4.5:1. Peor caso actual: 4.91:1.
 - Los atajos de una sola tecla no se disparan mientras se escribe, ni con un
   diálogo abierto.
 - Enlace "Saltar al contenido" como primer elemento tabulable.

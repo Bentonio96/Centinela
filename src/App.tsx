@@ -11,17 +11,7 @@
  * la pantalla entera y la barra lateral se convierte en un cajón.
  */
 
-import {
-  ClipboardList,
-  CodeXml,
-  Download,
-  Keyboard,
-  Link2,
-  Moon,
-  Play,
-  Plus,
-  Sun,
-} from 'lucide-react';
+import { ClipboardList, CodeXml, Download, Keyboard, Link2, Play, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HandoffDialog } from '@/components/dialogs/HandoffDialog';
@@ -254,12 +244,6 @@ export default function App() {
     };
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    settingsStore.update({
-      theme: settingsStore.getSnapshot().theme === 'light' ? 'dark' : 'light',
-    });
-  }, []);
-
   const commands = useMemo<readonly PaletteCommand[]>(
     () => [
       ...ALL_NAV.map((entry) => ({
@@ -294,14 +278,6 @@ export default function App() {
         icon: Play,
         keywords: 'tiempo real simulacion directo',
         run: incidentStore.toggleLive,
-      },
-      {
-        id: 'tema',
-        group: 'Acciones',
-        label: settings.theme === 'light' ? 'Cambiar a tema oscuro' : 'Cambiar a tema claro',
-        icon: settings.theme === 'light' ? Moon : Sun,
-        keywords: 'modo noche dia apariencia',
-        run: toggleTheme,
       },
       {
         id: 'exportar',
@@ -339,7 +315,7 @@ export default function App() {
         },
       },
     ],
-    [actions, incidents, settings.theme, store.running, toggleTheme],
+    [actions, incidents, store.running],
   );
 
   const showAnalyst = useCallback(
@@ -390,8 +366,6 @@ export default function App() {
               arriba; en escritorio scrollea sólo `main` y no hace falta. */}
           <div className="sticky top-2 z-30 lg:static">
             <Topbar
-              theme={settings.theme}
-              onToggleTheme={toggleTheme}
               onOpenPalette={() => setPaletteOpen(true)}
               onOpenMenu={() => setMenuOpen(true)}
               onOpenProfile={() => router.navigate('ajustes')}

@@ -34,7 +34,7 @@ export function PillGroup<T extends string | number>({
       role="group"
       aria-label={label}
       className={cn(
-        'inline-flex max-w-full flex-wrap gap-1 rounded-[1.375rem] bg-surface-card p-1 shadow-card dark:ring-1 dark:ring-border-subtle',
+        'inline-flex max-w-full flex-wrap gap-1 rounded-[1.375rem] bg-surface-card p-1 shadow-card',
         className,
       )}
     >

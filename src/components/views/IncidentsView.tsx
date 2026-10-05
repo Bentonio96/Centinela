@@ -99,7 +99,7 @@ export function IncidentsView({
         <div
           role="group"
           aria-label="Recortes rápidos"
-          className="inline-flex max-w-full flex-wrap gap-1 rounded-[1.375rem] bg-surface-card p-1 shadow-card dark:ring-1 dark:ring-border-subtle"
+          className="inline-flex max-w-full flex-wrap gap-1 rounded-[1.375rem] bg-surface-card p-1 shadow-card"
         >
           {shortcuts.map((shortcut) => {
             const isActive = table.isPresetActive(shortcut.preset);

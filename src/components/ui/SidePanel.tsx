@@ -101,7 +101,7 @@ export function SidePanel({
           onClose();
         }
       }}
-      className="my-2 mr-2 ml-auto h-[calc(100dvh-1rem)] max-h-none w-[calc(100vw-1rem)] max-w-none rounded-panel bg-surface-overlay p-0 text-text-primary shadow-popover backdrop:bg-brand-950/55 backdrop:backdrop-blur-[3px] sm:my-3 sm:mr-3 sm:h-[calc(100dvh-1.5rem)] sm:w-panel motion-safe:open:animate-panel-in dark:ring-1 dark:ring-border-strong"
+      className="my-2 mr-2 ml-auto h-[calc(100dvh-1rem)] max-h-none w-[calc(100vw-1rem)] max-w-none rounded-panel bg-surface-overlay p-0 text-text-primary shadow-popover backdrop:bg-brand-950/55 backdrop:backdrop-blur-[3px] sm:my-3 sm:mr-3 sm:h-[calc(100dvh-1.5rem)] sm:w-panel motion-safe:open:animate-panel-in"
     >
       {/* El contenido sólo se monta con el panel abierto: así el detalle no
           queda en el DOM cuando no se está mostrando. */}

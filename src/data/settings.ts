@@ -14,9 +14,6 @@
 
 import { DEFAULT_ANALYST, isAnalystName } from './team';
 
-export const THEMES = ['light', 'dark'] as const;
-export type Theme = (typeof THEMES)[number];
-
 export const ACCENTS = ['forest', 'ocean', 'plum', 'ember'] as const;
 export type Accent = (typeof ACCENTS)[number];
 
@@ -24,7 +21,6 @@ export const WEEK_STARTS = ['monday', 'sunday'] as const;
 export type WeekStart = (typeof WEEK_STARTS)[number];
 
 export interface Settings {
-  readonly theme: Theme;
   readonly accent: Accent;
   readonly weekStart: WeekStart;
   /** Con qué analista se usa la consola: define "Mis casos" y firma los cambios. */
@@ -40,17 +36,13 @@ export const SETTINGS_STORAGE_KEY = 'centinela:settings';
 /**
  * Clave de la versión anterior, que sólo guardaba el tema.
  *
- * **No se migra, se borra.** Aquella versión escribía su tema en cada visita,
- * lo hubiera elegido alguien o no, y su valor por defecto era el oscuro. Así
- * que un `'dark'` ahí no dice "esta persona prefiere el oscuro": dice "esta
- * persona entró alguna vez". Leerlo como preferencia le abría la consola en
- * oscuro a todo el que hubiera visitado la versión vieja. Y un `'light'`, que
- * sí habría sido una elección, coincide con el valor por defecto de hoy.
+ * Ya no hay tema que elegir —la consola es clara, siempre—, así que no se lee:
+ * se borra. Por el mismo motivo se ignora un `theme` que pudiera quedar dentro
+ * del JSON de ajustes de una versión intermedia.
  */
 const LEGACY_THEME_KEY = 'centinela:theme';
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: 'light',
   accent: 'forest',
   weekStart: 'monday',
   me: DEFAULT_ANALYST,
@@ -71,7 +63,6 @@ function readStored(): Settings {
     localStorage.removeItem(LEGACY_THEME_KEY);
 
     return {
-      theme: oneOf(THEMES, stored['theme'], DEFAULT_SETTINGS.theme),
       accent: oneOf(ACCENTS, stored['accent'], DEFAULT_SETTINGS.accent),
       weekStart: oneOf(WEEK_STARTS, stored['weekStart'], DEFAULT_SETTINGS.weekStart),
       me:
@@ -103,14 +94,13 @@ function persist(settings: Settings): void {
 }
 
 /**
- * Refleja tema y acento en `<html>`.
+ * Refleja el acento en `<html>`.
  *
  * El script en línea de `index.html` ya hizo esto antes del primer pintado;
  * repetirlo aquí es idempotente y cubre los cambios posteriores.
  */
 function applyToDocument(settings: Settings): void {
   const root = document.documentElement;
-  root.classList.toggle('dark', settings.theme === 'dark');
 
   if (settings.accent === 'forest') {
     delete root.dataset['accent'];

@@ -4,7 +4,12 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
+    <!--
+      `only light`: la consola no tiene tema oscuro, y esto le dice al navegador
+      que tampoco le aplique el suyo (el oscurecido automático de algunos
+      navegadores móviles, los controles nativos en oscuro).
+    -->
+    <meta name="color-scheme" content="only light" />
     <meta name="theme-color" content="#0b3a22" />
     <meta
       name="description"
@@ -21,18 +26,15 @@
   </head>
   <body>
     <!--
-      Aplica tema y acento guardados antes del primer pintado. El tema claro con
-      acento bosque ya es el valor por defecto del CSS, así que esto sólo
-      corrige a quien eligió otra cosa; sin esto vería un destello en cada carga.
+      Aplica el acento guardado antes del primer pintado. El acento bosque ya es
+      el valor por defecto del CSS, así que esto sólo corrige a quien eligió
+      otro; sin esto vería un destello verde en cada carga.
 
-      La clave antigua `centinela:theme` se ignora a propósito: la versión
-      anterior la escribía en cada visita con su valor por defecto, así que no
-      refleja una elección. Ver `src/data/settings.ts`.
+      El tema no se lee de ningún sitio: es claro, siempre.
     -->
     <script>
       try {
         var saved = JSON.parse(localStorage.getItem('centinela:settings') || '{}');
-        if (saved.theme === 'dark') document.documentElement.classList.add('dark');
         if (typeof saved.accent === 'string' && saved.accent !== 'forest') {
           document.documentElement.dataset.accent = saved.accent;
         }

@@ -19,14 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { CONTROL_CLASS } from '@/components/ui/control';
 import { Switch } from '@/components/ui/Switch';
-import {
-  ACCENTS,
-  settingsStore,
-  THEMES,
-  WEEK_STARTS,
-  type Theme,
-  type WeekStart,
-} from '@/data/settings';
+import { ACCENTS, settingsStore, WEEK_STARTS, type WeekStart } from '@/data/settings';
 import { incidentStore } from '@/data/store';
 import { findAnalyst, TEAM } from '@/data/team';
 import { toasts } from '@/data/toasts';
@@ -46,7 +39,6 @@ const SECTION_META: Readonly<
   datos: { label: 'Datos', icon: Database },
 };
 
-const THEME_LABEL: Readonly<Record<Theme, string>> = { light: 'Claro', dark: 'Oscuro' };
 const WEEK_START_LABEL: Readonly<Record<WeekStart, string>> = {
   monday: 'Lunes',
   sunday: 'Domingo',
@@ -221,7 +213,7 @@ export function SettingsView({ settings, headingRef }: ViewProps) {
                 </p>
               </div>
 
-              <div className="flex items-center gap-4 rounded-card bg-surface-sunken p-4 dark:bg-surface-hover">
+              <div className="flex items-center gap-4 rounded-card bg-surface-sunken p-4">
                 <Avatar name={settings.me} size="lg" />
                 <div className="min-w-0">
                   <p className="truncate text-base font-semibold text-text-primary">
@@ -289,17 +281,6 @@ export function SettingsView({ settings, headingRef }: ViewProps) {
                 <p className="mt-0.5 text-sm text-text-muted">
                   El acento re-tiñe toda la consola: botones, gráficos y fondo.
                 </p>
-              </div>
-
-              <div>
-                <GroupLabel>Tema</GroupLabel>
-                <Choice
-                  label="Tema"
-                  options={THEMES}
-                  value={settings.theme}
-                  onChange={(theme) => settingsStore.update({ theme })}
-                  render={(theme) => THEME_LABEL[theme]}
-                />
               </div>
 
               <div>
@@ -377,7 +358,7 @@ export function SettingsView({ settings, headingRef }: ViewProps) {
                       Restablecer las preferencias
                     </p>
                     <p className="mt-0.5 text-sm text-text-muted">
-                      Vuelve al tema claro, el acento bosque y los avisos por defecto.
+                      Vuelve al acento bosque, la semana en lunes y los avisos por defecto.
                     </p>
                   </div>
                   <Button

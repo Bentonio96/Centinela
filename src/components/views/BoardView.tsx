@@ -130,13 +130,13 @@ function BoardCard({
         onDragStart={(event) => onDragStart(event, incident)}
         onDragEnd={onDragEnd}
         className={cn(
-          'cursor-grab rounded-[0.875rem] bg-surface-card p-3 shadow-card transition-[opacity,box-shadow] duration-150 hover:shadow-lift active:cursor-grabbing dark:ring-1 dark:ring-border-subtle',
+          'cursor-grab rounded-[0.875rem] bg-surface-card p-3 shadow-card transition-[opacity,box-shadow] duration-150 hover:shadow-lift active:cursor-grabbing',
           dragging && 'opacity-40',
           highlighted && 'row-arrival ring-2 ring-brand-400',
         )}
       >
         <div className="flex items-center gap-2">
-          <span className="inline-flex min-w-0 items-center gap-1 rounded-md bg-surface-sunken px-1.5 py-0.5 text-[0.6875rem] font-medium text-text-secondary dark:bg-surface-hover">
+          <span className="inline-flex min-w-0 items-center gap-1 rounded-md bg-surface-sunken px-1.5 py-0.5 text-[0.6875rem] font-medium text-text-secondary">
             <CategoryIcon aria-hidden="true" className="size-3 shrink-0" />
             <span className="truncate">{category.shortLabel}</span>
           </span>
@@ -335,8 +335,8 @@ export function BoardView({
               }}
               onDrop={(event) => handleDrop(event, status.value)}
               className={cn(
-                'rise flex min-w-0 flex-col rounded-card bg-surface-sunken p-2 transition-[background-color,box-shadow] duration-150 dark:bg-surface-shell',
-                isOver && 'bg-accent-soft ring-2 ring-brand-400 dark:bg-accent-soft',
+                'rise flex min-w-0 flex-col rounded-card bg-surface-sunken p-2 transition-[background-color,box-shadow] duration-150',
+                isOver && 'bg-accent-soft ring-2 ring-brand-400',
               )}
               style={cssVars({ '--rise-delay': `${80 + index * 60}ms` })}
             >
