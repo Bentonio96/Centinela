@@ -1,21 +1,23 @@
 /**
  * Verificación de la interfaz sobre un navegador real.
  *
- * Comprueba lo que ni el compilador ni el linter pueden ver: que el orden de la
- * tabla ordene de verdad, que el foco se atrape en el panel y vuelva a su
- * origen al cerrarlo, que el corte responsivo cambie de tabla a tarjetas, que
- * el tema sobreviva a una recarga, que el estado viaje en la URL y que el flujo
- * en vivo no le robe el foco a nadie.
+ * Comprueba lo que ni el compilador ni el linter pueden ver: que las rutas
+ * naveguen y el botón "atrás" deshaga, que un enlace viejo siga llegando a la
+ * tabla filtrada, que el foco se atrape en un diálogo y vuelva a su origen,
+ * que mover una tarjeta del tablero cambie los indicadores, que el acento y el
+ * tema sobrevivan a una recarga, que el contraste alcance AA con los colores
+ * ya resueltos y que el flujo en vivo no le robe el foco a nadie.
  *
  * Uso (con el servidor de desarrollo levantado):
  *   npm run verify              -> sólo las comprobaciones
  *   npm run verify -- --shots   -> además regenera las capturas de docs/
+ *   BASE_URL=https://… npm run verify   -> contra cualquier despliegue
  */
 
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
 
-const BASE = process.env.BASE_URL ?? 'http://localhost:5173'
+const BASE = (process.env.BASE_URL ?? 'http://localhost:5173').replace(/\/$/, '')
 const OUT = 'docs'
 const WITH_SHOTS = process.argv.includes('--shots')
 if (WITH_SHOTS) mkdirSync(OUT, { recursive: true })
@@ -23,562 +25,563 @@ if (WITH_SHOTS) mkdirSync(OUT, { recursive: true })
 const browser = await chromium.launch()
 const results = []
 
-function check(name, actual, expected) {
+function check(name, actual, expected = true) {
   const ok = JSON.stringify(actual) === JSON.stringify(expected)
-  results.push(`${ok ? 'OK  ' : 'FAIL'} ${name} -> ${JSON.stringify(actual)}${ok ? '' : ` (esperado ${JSON.stringify(expected)})`}`)
+  results.push(
+    `${ok ? 'OK  ' : 'FAIL'} ${name} -> ${JSON.stringify(actual)}${ok ? '' : ` (esperado ${JSON.stringify(expected)})`}`,
+  )
 }
 
-// ---------- Escritorio, tema oscuro ----------
-const desktop = await browser.newContext({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 2 })
-const page = await desktop.newPage()
 const errors = []
-page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
-page.on('pageerror', (e) => errors.push(String(e)))
+function watch(page) {
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text())
+  })
+  page.on('pageerror', (error) => errors.push(String(error)))
+}
 
-await page.goto(BASE, { waitUntil: 'networkidle' })
-await page.waitForSelector('table tbody tr')
-await page.waitForTimeout(600)
+async function open(page, path) {
+  await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' })
+  await page.waitForSelector('h1')
+  // Deja terminar la entrada escalonada antes de medir o capturar.
+  await page.waitForTimeout(900)
+}
 
-check('tabla visible en 1440px', await page.locator('table').isVisible(), true)
-check('filas por pagina', await page.locator('tbody tr').count(), 25)
-check('graficos renderizados', await page.locator('.recharts-surface').count(), 2)
-check('las cuatro metricas muestran variacion', await page.evaluate(() => {
-  const cards = [...document.querySelectorAll('main article')]
-  return cards.length === 4 && cards.every((c) => /(\+|−|sin cambios)/.test(c.textContent ?? ''))
-}), true)
+const location = (page) => page.evaluate(() => window.location.pathname + window.location.search)
+const heading = (page) => page.locator('h1').innerText()
+const navLink = (page, name) =>
+  page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: new RegExp(`^${name}`) })
+const rows = (page) => page.locator('main tbody tr')
+/** El contador de casos sin resolver junto a "Incidentes", en la barra lateral. */
+const unresolvedBadge = async (page) =>
+  Number.parseInt(await navLink(page, 'Incidentes').locator('span.tabular').innerText(), 10)
+const noOverflow = (page) =>
+  page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
 
-// ---------- Orden por columna ----------
-const sevHeader = page.locator('th', { hasText: 'Severidad' })
-check('aria-sort inicial de Severidad', await sevHeader.getAttribute('aria-sort'), 'none')
-await sevHeader.getByRole('button').click()
-await page.waitForTimeout(250)
-check('aria-sort tras un clic', await sevHeader.getAttribute('aria-sort'), 'descending')
-check('primera fila es critica', (await page.locator('tbody tr').first().innerText()).includes('Crítica'), true)
-await sevHeader.getByRole('button').click()
-await page.waitForTimeout(250)
-check('aria-sort tras dos clics', await sevHeader.getAttribute('aria-sort'), 'ascending')
-check('primera fila es baja', (await page.locator('tbody tr').first().innerText()).includes('Baja'), true)
+// ===========================================================================
+// Escritorio
+// ===========================================================================
+const desktop = await browser.newContext({
+  viewport: { width: 1440, height: 900 },
+  deviceScaleFactor: 2,
+  permissions: ['clipboard-read', 'clipboard-write'],
+})
+const page = await desktop.newPage()
+watch(page)
 
-// ---------- Filtro por severidad ----------
-await page.getByRole('button', { name: 'Crítica', exact: true }).click()
-await page.waitForTimeout(250)
-const sevRows = await page.locator('tbody tr').allInnerTexts()
-check('filtro critica: solo criticas', sevRows.every((r) => r.includes('Crítica')), true)
-check('filtro critica: aria-pressed', await page.getByRole('button', { name: 'Crítica', exact: true }).getAttribute('aria-pressed'), 'true')
+// ---------- Arranque ----------
+await open(page, '/')
+check('titulo de la pestana', await page.title(), 'Panel · Centinela')
+check('un solo h1', await page.locator('h1').count(), 1)
+check('h1 del panel', await heading(page), 'Panel')
+check('tema claro por defecto', await page.evaluate(() => document.documentElement.classList.contains('dark')), false)
+check('siete vistas en la navegacion', await page.getByRole('navigation', { name: 'Principal' }).getByRole('link').count(), 7)
+check('aria-current en Panel', await navLink(page, 'Panel').getAttribute('aria-current'), 'page')
+check('cuatro indicadores con variacion', await page.evaluate(() => {
+  const cards = [...document.querySelectorAll('main section[aria-labelledby="indicadores-titulo"] article')]
+  return cards.length === 4 && cards.every((card) => /(\+|−|sin cambios)/.test(card.textContent ?? ''))
+}))
+check('carga de la semana: 4 dias reales y 3 proyectados', await page.evaluate(() => {
+  const list = document.querySelector('section[aria-labelledby="carga-titulo"] ol')
+  return [list?.querySelectorAll('button').length, list?.querySelectorAll('[role="img"]').length]
+}), [4, 3])
+check('medidor de plazos con nombre accesible', await page.locator('section[aria-labelledby="sla-titulo"] svg[role="img"]').getAttribute('aria-label').then((label) => /dentro de plazo/.test(label ?? '')))
+check('el documento no desborda (panel)', await noOverflow(page))
+check('enlace de salto es lo primero tabulable', await page.evaluate(() => {
+  const first = document.querySelector('a, button, input, select, [tabindex]')
+  return first?.textContent?.trim()
+}), 'Saltar al contenido')
 
-// ---------- Busqueda, incluida la insensibilidad a acentos ----------
-await page.getByRole('button', { name: 'Limpiar' }).click()
-await page.waitForTimeout(200)
-await page.getByRole('searchbox', { name: 'Buscar incidentes' }).fill('ingenieria social')
+// ---------- Rutas ----------
+await navLink(page, 'Incidentes').click()
+await page.waitForSelector('main tbody tr')
+check('clic en el menu cambia la ruta', await location(page), '/incidentes')
+check('el titulo de la pestana sigue a la vista', await page.title(), 'Incidentes · Centinela')
+check('el foco va al h1 nuevo', await page.evaluate(() => document.activeElement?.tagName), 'H1')
+check('aria-current se mueve', await navLink(page, 'Incidentes').getAttribute('aria-current'), 'page')
+await page.goBack()
 await page.waitForTimeout(300)
-const searchRows = await page.locator('tbody tr').allInnerTexts()
-check('busqueda sin acentos encuentra resultados', searchRows.length > 0, true)
-check('busqueda sin acentos filtra bien', searchRows.every((r) => r.includes('Ingeniería social')) || searchRows.length > 0, true)
+check('atras vuelve al panel', [await location(page), await heading(page)], ['/', 'Panel'])
+await page.goForward()
+await page.waitForTimeout(300)
+check('adelante vuelve a incidentes', await heading(page), 'Incidentes')
 
+await open(page, '/?sev=critical')
+check('enlace heredado redirige a la tabla', await location(page), '/incidentes?sev=critical')
+check('enlace heredado filtra', (await rows(page).allInnerTexts()).every((row) => row.includes('Crítica')))
+
+await open(page, '/no-existe')
+check('ruta desconocida cae al panel', await heading(page), 'Panel')
+
+await page.keyboard.press('g')
+await page.keyboard.press('t')
+await page.waitForTimeout(300)
+check('atajo g t va al tablero', await location(page), '/tablero')
+
+// ---------- Del panel a la tabla ----------
+await open(page, '/')
+const criticalOnPanel = Number.parseInt(
+  await page.locator('article', { hasText: 'Críticos sin resolver' }).locator('p.tabular').first().innerText(),
+  10,
+)
+await page.getByRole('button', { name: 'Ver los incidentes críticos sin resolver', exact: true }).click()
+await page.waitForTimeout(400)
+check('indicador lleva a la tabla con su recorte', await location(page), '/incidentes?sev=critical&estado=open%2Cinvestigating%2Ccontained')
+check('el recorte coincide con el indicador', await rows(page).count(), criticalOnPanel)
+check('el atajo "Criticos" queda marcado', await page.getByRole('button', { name: 'Críticos', exact: true }).getAttribute('aria-pressed'), 'true')
+
+await navLink(page, 'Tablero').click()
+await page.waitForTimeout(300)
+check('fuera de la tabla la URL no arrastra filtros', await location(page), '/tablero')
+await navLink(page, 'Incidentes').click()
+await page.waitForTimeout(300)
+check('al volver, los filtros se reponen en la URL', await location(page), '/incidentes?sev=critical&estado=open%2Cinvestigating%2Ccontained')
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForSelector('h1')
+check('recargar conserva el recorte', await rows(page).count(), criticalOnPanel)
+
+await page.getByRole('button', { name: 'Copiar enlace', exact: true }).click()
+await page.waitForTimeout(200)
+check('copiar enlace copia la URL', await page.evaluate(() => navigator.clipboard.readText()), `${BASE}/incidentes?sev=critical&estado=open%2Cinvestigating%2Ccontained`)
+
+// ---------- Tabla ----------
+await open(page, '/incidentes')
+check('filas por pagina', await rows(page).count(), 25)
+const total = await page.locator('main [role="status"]').first().innerText()
+check('recuento total visible', /^\d+ incidentes en total$/.test(total.replace(/\s+/g, ' ')))
+check('la tabla cabe en su tarjeta', await page.evaluate(() => {
+  const scroller = document.querySelector('main table')?.parentElement
+  return scroller !== null && scroller !== undefined && scroller.scrollWidth <= scroller.clientWidth
+}))
+
+const severityHeader = page.locator('th', { hasText: 'Severidad' })
+check('aria-sort inicial', await severityHeader.getAttribute('aria-sort'), 'none')
+await severityHeader.getByRole('button').click()
+await page.waitForTimeout(200)
+check('aria-sort tras un clic', await severityHeader.getAttribute('aria-sort'), 'descending')
+check('primera fila critica', (await rows(page).first().innerText()).includes('Crítica'))
+await severityHeader.getByRole('button').click()
+await page.waitForTimeout(200)
+check('primera fila baja', (await rows(page).first().innerText()).includes('Baja'))
+check('el orden viaja en la URL', await location(page), '/incidentes?orden=severity%3Aasc')
+
+await open(page, '/incidentes')
+await page.keyboard.press('/')
+check('la barra enfoca la busqueda', await page.evaluate(() => document.activeElement?.getAttribute('type')), 'search')
+await page.keyboard.type('ingenieria social')
+await page.waitForTimeout(300)
+check('busqueda sin acentos encuentra', (await rows(page).count()) > 0)
 await page.getByRole('searchbox', { name: 'Buscar incidentes' }).fill('zzzznoexiste')
 await page.waitForTimeout(300)
-check('estado vacio', await page.getByText('Ningún incidente coincide').isVisible(), true)
-await page.getByRole('button', { name: 'Limpiar filtros' }).click()
-await page.waitForTimeout(300)
-check('limpiar restaura el total', await page.locator('tbody tr').count(), 25)
+check('estado vacio con salida', await page.getByText('Ningún incidente coincide').isVisible())
+await page.getByRole('button', { name: 'Limpiar filtros', exact: true }).click()
+await page.waitForTimeout(200)
+check('limpiar filtros restaura', await rows(page).count(), 25)
 
-// ---------- Teclado en la tabla ----------
-const firstRowButton = page.locator('tbody tr button[aria-label^="Ver detalle"]').first()
+await page.getByRole('button', { name: 'Página siguiente', exact: true }).click()
+await page.waitForTimeout(200)
+check('paginacion', [await page.locator('nav[aria-label="Paginación de incidentes"] [role="status"]').innerText().then((text) => text.startsWith('Página 2')), await location(page)], [true, '/incidentes?p=2'])
+
+await open(page, '/incidentes')
+const firstRowButton = rows(page).first().getByRole('button')
 await firstRowButton.focus()
-check('foco en la primera fila', await page.evaluate(() => document.activeElement?.getAttribute('aria-label')?.slice(0, 15)), 'Ver detalle de ')
-const firstLabel = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))
 await page.keyboard.press('ArrowDown')
-const secondLabel = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))
-check('ArrowDown mueve el foco', firstLabel !== secondLabel, true)
-await page.keyboard.press('ArrowUp')
-check('ArrowUp vuelve', await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), firstLabel)
-await page.keyboard.press('End')
-const endLabel = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))
-check('End va a la ultima fila', endLabel !== firstLabel, true)
-await page.keyboard.press('Home')
-check('Home vuelve a la primera', await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), firstLabel)
+check('flecha abajo recorre las filas', await page.evaluate(() => {
+  const buttons = [...document.querySelectorAll('main tbody tr button')]
+  return buttons.indexOf(document.activeElement)
+}), 1)
 
-// ---------- Panel de detalle: apertura con Enter, foco atrapado, Escape ----------
+// ---------- Panel de detalle ----------
+await firstRowButton.focus()
+const firstId = (await rows(page).first().locator('td').first().innerText()).trim()
+await page.keyboard.press('Enter')
+await page.waitForSelector('dialog[open]')
+check('enter abre el detalle', await location(page), `/incidentes?inc=${firstId}`)
+check('el foco entra al dialogo', await page.evaluate(() => document.activeElement?.closest('dialog') !== null))
+for (let i = 0; i < 40; i += 1) await page.keyboard.press('Tab')
+check('el foco no escapa del dialogo', await page.evaluate(() => document.activeElement?.closest('dialog') !== null))
+await page.keyboard.press('ArrowRight')
+await page.waitForTimeout(200)
+const secondId = (await rows(page).nth(1).locator('td').first().innerText()).trim()
+check('flecha derecha pasa al siguiente', await location(page), `/incidentes?inc=${secondId}`)
+await page.keyboard.press('Escape')
+await page.waitForTimeout(300)
+check('escape cierra y limpia la URL', await location(page), '/incidentes')
+check('el foco vuelve a la fila', await page.evaluate(() => document.activeElement?.closest('tbody') !== null))
+
+await firstRowButton.click()
+await page.waitForSelector('dialog[open]')
+await page.goBack()
+await page.waitForTimeout(300)
+check('atras cierra el panel sin salir de la vista', [await page.locator('dialog[open]').count(), await location(page)], [0, '/incidentes'])
+
+await open(page, `/tablero?inc=${firstId}`)
+check('enlace directo abre el detalle sobre cualquier vista', [await page.locator('dialog[open]').count(), await heading(page)], [1, 'Tablero'])
+await page.getByRole('button', { name: 'Cerrar el detalle del incidente', exact: true }).click()
+await page.waitForTimeout(300)
+check('cerrar un enlace directo no saca del sitio', await location(page), '/tablero')
+
+// ---------- Detalle: cambiar estado y deshacer ----------
+await open(page, '/incidentes?estado=open')
+const before = await unresolvedBadge(page)
+await rows(page).first().getByRole('button').click()
+await page.waitForSelector('dialog[open]')
+const timelineBefore = await page.locator('dialog[open] ol li').count()
+await page.locator('dialog[open]').getByRole('button', { name: 'Resuelto', exact: true }).click()
+await page.waitForTimeout(300)
+check('resolver baja el contador de abiertos', await unresolvedBadge(page), before - 1)
+check('resolver firma la bitacora', await page.locator('dialog[open] ol li').count(), timelineBefore + 1)
+check('el aviso se monta dentro del dialogo', await page.locator('dialog[open] [role="status"][aria-label="Avisos"]').count(), 1)
+await page.locator('dialog[open]').getByRole('button', { name: 'Deshacer', exact: true }).click()
+await page.waitForTimeout(300)
+check('deshacer devuelve el contador', await unresolvedBadge(page), before)
+check('deshacer devuelve la bitacora', await page.locator('dialog[open] ol li').count(), timelineBefore)
+await page.locator('dialog[open] select').selectOption({ index: 3 })
+await page.waitForTimeout(200)
+check('reasignar firma la bitacora', await page.locator('dialog[open] ol li').count(), timelineBefore + 1)
+await page.keyboard.press('Escape')
+await page.waitForTimeout(300)
+
+// ---------- Nuevo incidente ----------
+await open(page, '/incidentes')
+const totalBefore = Number.parseInt(await page.locator('main [role="status"]').first().innerText(), 10)
+const badgeBefore = await unresolvedBadge(page)
+await page.keyboard.press('n')
+await page.waitForSelector('dialog[open]')
+check('n abre el formulario con el foco en el titulo', await page.evaluate(() => document.activeElement?.tagName), 'INPUT')
+await page.getByRole('button', { name: 'Registrar incidente', exact: true }).click()
+await page.waitForTimeout(200)
+check('el titulo es obligatorio', await page.locator('dialog[open]').count(), 1)
+await page.keyboard.type('Prueba de verificacion')
+await page.locator('dialog[open]').getByText('Crítica', { exact: true }).click()
+await page.getByRole('button', { name: 'Registrar incidente', exact: true }).click()
+await page.waitForTimeout(400)
+check('registrar cierra el formulario', await page.locator('dialog[open]').count(), 0)
+check('el incidente nuevo encabeza la tabla', (await rows(page).first().innerText()).includes('Prueba de verificacion'))
+check('el total sube en uno', Number.parseInt(await page.locator('main [role="status"]').first().innerText(), 10), totalBefore + 1)
+check('el contador de abiertos sube en uno', await unresolvedBadge(page), badgeBefore + 1)
+
+// ---------- Tablero ----------
+await open(page, '/tablero')
+const column = (status) => page.locator(`section[aria-labelledby="columna-${status}"]`)
+const countIn = (status) => column(status).locator('li[data-flip]').count()
+check('cuatro columnas', await page.locator('main section[aria-labelledby^="columna-"]').count(), 4)
+const openBefore = await countIn('open')
+const containedBefore = await countIn('contained')
+const movedId = await column('open').locator('li[data-flip]').first().getAttribute('data-flip')
+await column('open').getByRole('button', { name: `Acciones de ${movedId}`, exact: true }).click()
+check('el menu abre con el foco en la primera opcion', await page.evaluate(() => document.activeElement?.getAttribute('role')), 'menuitem')
+await page.getByRole('menuitem', { name: 'Contenido', exact: true }).click()
+await page.waitForTimeout(600)
+check('el menu mueve la tarjeta', [await countIn('open'), await countIn('contained')], [openBefore - 1, containedBefore + 1])
+check('la tarjeta esta en su columna nueva', await column('contained').locator(`li[data-flip="${movedId}"]`).count(), 1)
+
+const investigatingBefore = await countIn('investigating')
+const dragged = column('investigating').locator('li[data-flip]').first()
+const draggedId = await dragged.getAttribute('data-flip')
+await dragged.locator('article').dragTo(column('open').locator('header'))
+await page.waitForTimeout(600)
+check('arrastrar mueve la tarjeta', [await countIn('investigating'), await column('open').locator(`li[data-flip="${draggedId}"]`).count()], [investigatingBefore - 1, 1])
+
+const allCards = await page.locator('main li[data-flip]').count()
+await page.getByRole('button', { name: 'Críticas y altas', exact: true }).click()
+await page.waitForTimeout(500)
+check('el filtro del tablero recorta', (await page.locator('main li[data-flip]').count()) < allCards)
+
+// ---------- Calendario ----------
+await open(page, '/calendario')
+check('rejilla con siete columnas', await page.locator('main thead th').count(), 7)
+check('la semana empieza en lunes', await page.locator('main thead th').first().innerText().then((text) => text.toLowerCase()), 'lun')
+check('hoy esta seleccionado', await page.locator('main tbody button[aria-pressed="true"]').count(), 1)
+const month = await page.locator('#mes-titulo').innerText()
+await page.getByRole('button', { name: 'Mes siguiente', exact: true }).click()
+await page.waitForTimeout(200)
+check('mes siguiente cambia el titulo', (await page.locator('#mes-titulo').innerText()) !== month)
+await page.getByRole('button', { name: 'Hoy', exact: true }).click()
+await page.waitForTimeout(200)
+check('hoy vuelve al mes actual', await page.locator('#mes-titulo').innerText(), month)
+
+// ---------- Analitica ----------
+await open(page, '/analitica')
+check('cuatro indicadores del periodo', await page.locator('section[aria-labelledby="kpis-titulo"] article').count(), 4)
+check('tabla alternativa del grafico: 30 dias', await page.locator('section[aria-labelledby="detecciones-titulo"] table tbody tr').count(), 30)
+await page.getByRole('button', { name: '7 días', exact: true }).click()
+await page.waitForTimeout(400)
+check('cambiar el periodo recalcula: 7 dias', await page.locator('section[aria-labelledby="detecciones-titulo"] table tbody tr').count(), 7)
+check('mapa de calor: 7 x 24 celdas', await page.locator('section[aria-labelledby="calor-titulo"] [role="img"] span[title]').count(), 168)
+await page.locator('section[aria-labelledby="detecciones-titulo"] [role="group"][tabindex="0"]').focus()
+await page.keyboard.press('ArrowLeft')
+await page.keyboard.press('ArrowLeft')
+await page.waitForTimeout(150)
+check('las flechas recorren el grafico y lo anuncian', await page.locator('section[aria-labelledby="detecciones-titulo"] [aria-live]').innerText().then((text) => /en este período/.test(text)))
+
+// ---------- Equipo ----------
+await open(page, '/equipo')
+check('ocho analistas', await page.locator('main li[data-flip]').count(), 8)
+await page.getByRole('button', { name: 'Forense', exact: true }).click()
+await page.waitForTimeout(500)
+check('filtro por celula', await page.locator('main li[data-flip]').count(), 2)
+await page.getByRole('button', { name: 'Perfil', exact: true }).first().click()
+await page.waitForSelector('dialog[open]')
+check('el perfil abre con el nombre', await page.locator('dialog[open] h2').innerText(), 'Valentina Soto')
+await page.keyboard.press('Escape')
+await page.waitForTimeout(300)
+await page.getByRole('button', { name: 'Ver casos', exact: true }).first().click()
+await page.waitForTimeout(400)
+check('ver casos lleva a la tabla filtrada', await location(page), '/incidentes?estado=open%2Cinvestigating%2Ccontained&resp=Valentina+Soto')
+
+// ---------- Paleta de comandos ----------
+await open(page, '/')
+await page.keyboard.press('Control+k')
+await page.waitForSelector('dialog[open]')
+check('ctrl+k abre la paleta con el foco en el campo', await page.evaluate(() => document.activeElement?.getAttribute('role')), 'combobox')
+check('la opcion activa se anuncia', await page.evaluate(() => {
+  const input = document.activeElement
+  const id = input?.getAttribute('aria-activedescendant')
+  return id !== null && document.getElementById(id ?? '')?.getAttribute('aria-selected')
+}), 'true')
+await page.keyboard.type('calend')
 await page.keyboard.press('Enter')
 await page.waitForTimeout(400)
-check('dialogo abierto', await page.locator('dialog[open]').isVisible(), true)
-check('dialogo es modal', await page.evaluate(() => document.querySelector('dialog')?.matches(':modal')), true)
-check('foco dentro del dialogo', await page.evaluate(() => document.querySelector('dialog')?.contains(document.activeElement)), true)
-check('scroll de fondo bloqueado', await page.evaluate(() => document.body.style.overflow), 'hidden')
-check('bitacora presente', await page.locator('dialog ol li').count() > 0, true)
-
-await page.keyboard.press('Escape')
-await page.waitForTimeout(400)
-check('Escape cierra', await page.locator('dialog[open]').count(), 0)
-check('scroll restaurado', await page.evaluate(() => document.body.style.overflow), '')
-check('foco devuelto a la fila', await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), firstLabel)
-
-// ---------- Tema claro ----------
-await page.getByRole('button', { name: 'Cambiar a tema claro' }).click()
-await page.waitForTimeout(400)
-check('clase light aplicada', await page.evaluate(() => document.documentElement.classList.contains('light')), true)
-check('tema persistido', await page.evaluate(() => localStorage.getItem('centinela:theme')), 'light')
-
-// Persistencia tras recargar
-await page.reload({ waitUntil: 'networkidle' })
-await page.waitForTimeout(500)
-check('tema claro sobrevive la recarga', await page.evaluate(() => document.documentElement.classList.contains('light')), true)
-await page.getByRole('button', { name: 'Cambiar a tema oscuro' }).click()
-await page.waitForTimeout(300)
-check('vuelve a oscuro', await page.evaluate(() => document.documentElement.classList.contains('light')), false)
-
-// ---------- Responsive en vivo, sin recargar ----------
-await page.setViewportSize({ width: 600, height: 900 })
-await page.waitForTimeout(500)
-check('bajo 768px no hay tabla', await page.locator('table').count(), 0)
-check('bajo 768px hay tarjetas', await page.locator('main ul li button[aria-label^="Ver detalle"]').count() > 0, true)
-await page.setViewportSize({ width: 1440, height: 960 })
-await page.waitForTimeout(500)
-check('sobre 768px vuelve la tabla', await page.locator('table').count(), 1)
-
-// ---------- Movil ----------
-const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3 })
-const mobilePage = await mobile.newPage()
-mobilePage.on('pageerror', (e) => errors.push(String(e)))
-await mobilePage.goto(BASE, { waitUntil: 'networkidle' })
-await mobilePage.waitForTimeout(800)
-check('movil: sin tabla', await mobilePage.locator('table').count(), 0)
-check('movil: tarjetas', await mobilePage.locator('main ul li button[aria-label^="Ver detalle"]').count() > 0, true)
-check('movil: sin scroll horizontal', await mobilePage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true)
-await mobilePage.locator('main ul li button[aria-label^="Ver detalle"]').first().click()
-await mobilePage.waitForTimeout(500)
-check('movil: panel a ancho completo', await mobilePage.evaluate(() => {
-  const d = document.querySelector('dialog')
-  return d ? Math.round(d.getBoundingClientRect().width) === window.innerWidth : false
-}), true)
-
-// ---------- Contraste del foco y landmarks ----------
-check('graficos con nombre accesible', await page.evaluate(() => document.querySelectorAll('[aria-label^="Gráfico"]').length), 2)
-
-// Ninguna etiqueta del grafico de categorias debe partirse en dos lineas.
-check('etiquetas del eje en una linea', await page.evaluate(() => {
-  const bar = document.querySelectorAll('.recharts-surface')[1]
-  const texts = [...bar.querySelectorAll('text')]
-  return texts.length > 0 && texts.every((t) => t.querySelectorAll('tspan').length <= 1)
-}), true)
-
-// El orden de tabulacion se comprueba en una pestana recien cargada: si no, se
-// heredaria la posicion del foco que dejaron las pruebas anteriores.
-const freshPage = await desktop.newPage()
-await freshPage.goto(BASE, { waitUntil: 'networkidle' })
-await freshPage.waitForTimeout(500)
-await freshPage.keyboard.press('Tab')
-check('skip link es el primer tabulable', await freshPage.evaluate(() => document.activeElement?.textContent?.trim()), 'Saltar al contenido')
-check('el skip link se ve al enfocarlo', await freshPage.evaluate(() => {
-  const el = document.activeElement
-  if (!el) return false
-  const r = el.getBoundingClientRect()
-  return r.width > 1 && r.height > 1
-}), true)
-await freshPage.close()
-
-check('landmarks', await page.evaluate(() => ({
-  header: document.querySelectorAll('header').length,
-  main: document.querySelectorAll('main').length,
-  h1: document.querySelectorAll('h1').length,
-})), { header: 1, main: 1, h1: 1 })
-
-// ---------------------------------------------------------------------------
-// El estado vive en la URL
-// ---------------------------------------------------------------------------
-const path = () => {
-  const parsed = new URL(page.url())
-  return parsed.pathname + parsed.search
-}
-
-await page.goto(BASE, { waitUntil: 'networkidle' })
-await page.waitForTimeout(700)
-check('url limpia al inicio', path(), '/')
-
-await page.getByRole('button', { name: 'Crítica', exact: true }).click()
-await page.waitForTimeout(300)
-check('el filtro se escribe en la url', path(), '/?sev=critical')
-
-await page.getByRole('searchbox', { name: 'Buscar incidentes' }).fill('vpn')
-await page.waitForTimeout(400)
-check('la busqueda se escribe en la url', path().includes('q=vpn'), true)
-
-// Un enlace compartido reconstruye la vista completa.
-await page.goto(`${BASE}/?sev=critical&cat=ransomware&orden=severity:desc`, { waitUntil: 'networkidle' })
-await page.waitForTimeout(700)
-const sharedRows = await page.locator('tbody tr').allInnerTexts()
-check('enlace compartido: severidad', sharedRows.every((r) => r.includes('Crítica')), true)
-check('enlace compartido: categoria', sharedRows.every((r) => r.includes('Ransomware')), true)
-check('enlace compartido: selector sincronizado', await page.getByLabel('Filtrar por categoría').inputValue(), 'ransomware')
-check('enlace compartido: orden', await page.locator('th', { hasText: 'Severidad' }).getAttribute('aria-sort'), 'descending')
-
-// Los parametros invalidos se descartan sin romper nada.
-await page.goto(`${BASE}/?sev=inventada&cat=xxx&orden=nada:raro&p=-5&dia=99-99`, { waitUntil: 'networkidle' })
-await page.waitForTimeout(700)
-check('parametros invalidos: no rompen', await page.locator('tbody tr').count(), 25)
-check('parametros invalidos: url saneada', path(), '/')
-
-// Abrir el panel empuja una entrada; "atras" lo cierra.
-await page.locator('tbody tr button[aria-label^="Ver detalle"]').first().click()
-await page.waitForTimeout(500)
-check('abrir el panel escribe la url', path().includes('inc=INC-'), true)
-await page.goBack()
-await page.waitForTimeout(600)
-check('el boton atras cierra el panel', await page.locator('dialog[open]').count(), 0)
-check('atras limpia el parametro', path().includes('inc='), false)
-
-// ---------------------------------------------------------------------------
-// Filtrar desde los graficos
-// ---------------------------------------------------------------------------
-await page.goto(BASE, { waitUntil: 'networkidle' })
-await page.waitForTimeout(900)
-
-const bars = page.locator('.recharts-surface').nth(1).locator('.recharts-bar-rectangle')
-await bars.first().click({ force: true })
-await page.waitForTimeout(500)
-check('clic en barra filtra', path().startsWith('/?cat='), true)
-check('clic en barra sincroniza el selector', (await page.getByLabel('Filtrar por categoría').inputValue()).length > 0, true)
-await bars.first().click({ force: true })
-await page.waitForTimeout(500)
-check('re-clic en la barra deselecciona', path(), '/')
-
-// El grafico de linea necesita que el puntero pase por encima antes del clic:
-// Recharts calcula el punto activo en el `mousemove`.
-const trendBox = await page.locator('.recharts-surface').first().boundingBox()
-await page.mouse.move(trendBox.x + trendBox.width * 0.5, trendBox.y + trendBox.height * 0.5)
-await page.waitForTimeout(300)
-await page.mouse.down()
-await page.mouse.up()
-await page.waitForTimeout(500)
-check('clic en la linea filtra por dia', path().startsWith('/?dia='), true)
-check('el dia muestra su chip', await page.locator('button[aria-label^="Quitar filtro"]').count(), 1)
-await page.locator('button[aria-label^="Quitar filtro"]').first().click()
-await page.waitForTimeout(400)
-check('el chip quita el filtro', path(), '/')
-
-// El selector de categoria es la ruta accesible por teclado al mismo filtro.
-await page.getByLabel('Filtrar por categoría').selectOption('ransomware')
-await page.waitForTimeout(400)
-const selectRows = await page.locator('tbody tr').allInnerTexts()
-check('el selector filtra', selectRows.every((r) => r.includes('Ransomware')), true)
-await page.getByLabel('Filtrar por categoría').selectOption('')
-await page.waitForTimeout(400)
-check('"todas las categorias" limpia', path(), '/')
-
-// ---------------------------------------------------------------------------
-// Flujo en vivo
-// ---------------------------------------------------------------------------
-const liveButton = page.getByRole('button', { name: /flujo en tiempo real/ })
-const totalText = () =>
-  page.locator('section[aria-labelledby="incidentes-titulo"] p[role="status"]').first().innerText()
-const highlighted = () =>
-  page.evaluate(() => document.querySelectorAll('tbody tr[class*="accent-soft/60"]').length)
-
-check('el flujo arranca detenido', await liveButton.getAttribute('aria-pressed'), 'false')
-const totalBefore = await totalText()
-
-await page.getByRole('button', { name: /Activar el flujo/ }).click()
-await page.waitForTimeout(300)
-check('el flujo se activa', await liveButton.getAttribute('aria-pressed'), 'true')
-
-// Con el flujo activo, el foco no debe moverse solo.
-await page.locator('tbody tr button[aria-label^="Ver detalle"]').nth(2).focus()
-const focusBefore = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))
-await page.waitForTimeout(9000)
-
-check('entran incidentes nuevos', (await totalText()) !== totalBefore, true)
-check('la fila nueva se resalta', (await highlighted()) > 0, true)
-check('la pagina sigue teniendo 25 filas', await page.locator('tbody tr').count(), 25)
-check('el flujo no roba el foco', await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), focusBefore)
-
-await page.getByRole('button', { name: /Detener el flujo/ }).click()
-await page.waitForTimeout(400)
-const totalAfterStop = await totalText()
-check('el flujo se detiene', await liveButton.getAttribute('aria-pressed'), 'false')
-check('al detener se apaga el resalte', await highlighted(), 0)
-await page.waitForTimeout(5000)
-check('detenido, el total se congela', await totalText(), totalAfterStop)
-
-// ---------------------------------------------------------------------------
-// Las tarjetas de indicador como filtro
-// ---------------------------------------------------------------------------
-await page.goto(BASE, { waitUntil: 'networkidle' })
-await page.waitForTimeout(900)
-
-const metricValue = (label) =>
-  page.locator('main article').filter({ hasText: label }).locator('p').first().innerText()
-
-const criticalCard = page.getByRole('button', { name: /críticos sin resolver/ })
-const criticalValue = await metricValue('Críticos sin resolver')
-
-await criticalCard.click()
-await page.waitForTimeout(500)
-check('la tarjeta filtra: url', path(), `/?sev=critical&estado=open%2Cinvestigating%2Ccontained`)
-check('la tarjeta filtra: aria-pressed', await criticalCard.getAttribute('aria-pressed'), 'true')
-// La cifra de la tarjeta y la de la tabla tienen que ser la misma: si no, el
-// indicador y su filtro estarian midiendo cosas distintas.
-check('la tarjeta filtra: el recuento coincide con la cifra',
-  (await totalText()).startsWith(criticalValue), true)
-check('la tarjeta filtra: ninguna fila resuelta',
-  (await page.locator('tbody tr').allInnerTexts()).some((r) => r.includes('Resuelto')), false)
-check('la tarjeta filtra: aparece el chip de estado',
-  await page.getByRole('button', { name: 'Quitar filtro: Sin resolver' }).isVisible(), true)
-
-await page.getByRole('button', { name: 'Quitar filtro: Sin resolver' }).click()
-await page.waitForTimeout(400)
-check('el chip quita el estado', path(), '/?sev=critical')
-check('la tarjeta deja de estar activa', await criticalCard.getAttribute('aria-pressed'), 'false')
-
-// El tiempo medio de resolucion es un promedio, no un conjunto: no es un boton.
-check('el promedio no es accionable', await page.evaluate(() => {
-  const card = [...document.querySelectorAll('main article')]
-    .find((c) => c.textContent?.includes('Tiempo medio'))
-  return card?.querySelector('button') === null
-}), true)
-
-check('cada indicador dibuja su curva',
-  await page.locator('main article svg[aria-hidden="true"]').count() >= 4, true)
-
-// ---------------------------------------------------------------------------
-// Atajos de teclado
-// ---------------------------------------------------------------------------
-await page.goto(BASE, { waitUntil: 'networkidle' })
-await page.waitForTimeout(700)
-
-await page.locator('body').click({ position: { x: 5, y: 400 } })
-await page.keyboard.press('/')
-await page.waitForTimeout(250)
-check('"/" enfoca la busqueda',
-  await page.evaluate(() => document.activeElement?.getAttribute('type')), 'search')
-
-// Escribiendo dentro de un campo, la barra es una barra y no un atajo.
-await page.locator('#filtro-categoria').focus()
-await page.keyboard.press('/')
+check('la paleta navega', [await location(page), await page.locator('dialog[open]').count()], ['/calendario', 0])
+await page.keyboard.press('Control+k')
+await page.keyboard.type(firstId)
 await page.waitForTimeout(200)
-check('"/" no roba el foco mientras se escribe',
-  await page.evaluate(() => document.activeElement?.id), 'filtro-categoria')
-
-// ---------------------------------------------------------------------------
-// Recorrer incidentes desde el panel
-// ---------------------------------------------------------------------------
-await page.goto(BASE, { waitUntil: 'networkidle' })
-await page.waitForTimeout(700)
-
-const panelId = () => page.locator('dialog[open] .font-mono').first().innerText()
-
-await page.locator('tbody tr button[aria-label^="Ver detalle"]').first().click()
-await page.waitForTimeout(500)
-const firstPanelId = await panelId()
-check('en el primero, "anterior" esta desactivado',
-  await page.getByRole('button', { name: 'Incidente anterior' }).isDisabled(), true)
-
-await page.keyboard.press('ArrowRight')
-await page.waitForTimeout(400)
-const secondPanelId = await panelId()
-check('la flecha derecha avanza', secondPanelId !== firstPanelId, true)
-check('el panel sigue abierto al avanzar', await page.locator('dialog[open]').count(), 1)
-
-await page.keyboard.press('ArrowLeft')
-await page.waitForTimeout(400)
-check('la flecha izquierda vuelve', await panelId(), firstPanelId)
-
-// Recorrer no debe dejar una entrada de historial por incidente: un solo
-// "atras" tiene que cerrar el panel.
-await page.keyboard.press('ArrowRight')
-await page.waitForTimeout(400)
-await page.goBack()
-await page.waitForTimeout(600)
-check('un solo "atras" cierra el panel tras recorrerlo',
-  await page.locator('dialog[open]').count(), 0)
-
-// ---------------------------------------------------------------------------
-// Copiar el enlace de la vista
-// ---------------------------------------------------------------------------
-await page.goto(`${BASE}/?sev=critical`, { waitUntil: 'networkidle' })
-await page.waitForTimeout(700)
-await page.getByRole('button', { name: /Copiar enlace/ }).click()
+await page.keyboard.press('Enter')
+await page.waitForSelector('dialog[open] h2')
+check('la paleta abre un incidente por su ID', await location(page), `/calendario?inc=${firstId}`)
+await page.keyboard.press('Control+k')
+await page.waitForTimeout(200)
+check('ctrl+k no abre la paleta sobre otro dialogo', await page.locator('dialog[open]').count(), 1)
+await page.keyboard.press('Escape')
 await page.waitForTimeout(300)
-// El resultado depende de los permisos del portapapeles; lo que se comprueba es
-// que el boton responda, no que el navegador de permiso.
-check('copiar enlace responde',
-  /Copiado|No se pudo/.test(await page.locator('button[title^="Copiar el enlace"]').innerText()), true)
 
-check('sin errores de consola', errors, [])
+// ---------- Ajustes ----------
+await open(page, '/ajustes')
+check('pestanas con rol', await page.getByRole('tab').count(), 4)
+await page.getByRole('tab', { name: 'Perfil', exact: true }).focus()
+await page.keyboard.press('ArrowDown')
+await page.keyboard.press('ArrowDown')
+check('las flechas cambian de pestana', await page.getByRole('tab', { name: 'Apariencia', exact: true }).getAttribute('aria-selected'), 'true')
+await page.getByRole('button', { name: 'Océano', exact: true }).click()
+await page.getByRole('button', { name: 'Oscuro', exact: true }).click()
+await page.getByRole('button', { name: 'Domingo', exact: true }).click()
+await page.waitForTimeout(200)
+check('acento y tema se aplican', await page.evaluate(() => [document.documentElement.dataset.accent, document.documentElement.classList.contains('dark')]), ['ocean', true])
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForSelector('h1')
+check('acento y tema sobreviven a recargar', await page.evaluate(() => [document.documentElement.dataset.accent, document.documentElement.classList.contains('dark')]), ['ocean', true])
+await open(page, '/calendario')
+check('la semana empieza en domingo', await page.locator('main thead th').first().innerText().then((text) => text.toLowerCase()), 'dom')
+await open(page, '/ajustes')
+await page.getByRole('tab', { name: 'Datos', exact: true }).click()
+await page.getByRole('button', { name: 'Restablecer preferencias', exact: true }).click()
+await page.waitForTimeout(200)
+check('restablecer vuelve al acento y tema por defecto', await page.evaluate(() => [document.documentElement.dataset.accent ?? null, document.documentElement.classList.contains('dark')]), [null, false])
 
-// ---------------------------------------------------------------------------
-// Contraste real de los grises secundarios
-// ---------------------------------------------------------------------------
-// El tema claro se derivo del oscuro por simetria y `--text-muted` acabo en
-// 3.76:1 sobre la cabecera de la tabla, por debajo del 4.5:1 que pide AA para
-// texto de 12px. Es justamente el tipo de fallo que no se ve mirando: el gris
-// "parece" bien. Se mide en el navegador, con los colores ya resueltos, para
-// que un retoque futuro de la paleta no lo reintroduzca en silencio.
-async function contrastReport(theme) {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
-  const p = await ctx.newPage()
-  await p.goto(BASE, { waitUntil: 'networkidle' })
-  if (theme === 'light') {
-    await p.getByRole('button', { name: 'Cambiar a tema claro' }).click()
-    await p.waitForTimeout(400)
-  }
+// ---------- Flujo en vivo ----------
+await open(page, '/')
+const liveBadge = await unresolvedBadge(page)
+const play = page.getByRole('button', { name: 'Iniciar el flujo en vivo', exact: true })
+await play.click()
+check('el interruptor del flujo queda pulsado', await page.getByRole('button', { name: 'Pausar el flujo en vivo', exact: true }).getAttribute('aria-pressed'), 'true')
+// Se lee sólo la región viva, no la tarjeta entera: el cronómetro va justo
+// antes en el DOM, y "00:00:05" pegado a "0 incidentes" se leería como 50.
+await page.waitForFunction(
+  () => /^[1-9]/.test(document.querySelector('section[aria-labelledby="flujo-en-vivo"] [aria-live]')?.textContent ?? ''),
+  undefined,
+  { timeout: 20_000 },
+)
+check('el flujo trae incidentes', /[1-9]/.test(await page.locator('section[aria-labelledby="flujo-en-vivo"] [aria-live]').innerText()))
+check('el cronometro avanza', (await page.locator('[role="timer"]').innerText()) !== '00:00:00')
+check('el flujo no roba el foco', await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Pausar el flujo en vivo')
+await page.getByRole('button', { name: 'Pausar el flujo en vivo', exact: true }).click()
+await page.getByRole('button', { name: 'Detener el flujo y reiniciar el cronómetro', exact: true }).click()
+check('detener pone el cronometro a cero', await page.locator('[role="timer"]').innerText(), '00:00:00')
+check('lo recibido se queda', (await unresolvedBadge(page)) >= liveBadge)
 
-  const report = await p.evaluate(() => {
-    const probe = document.createElement('span')
-    document.body.append(probe)
+check('sin errores de consola en escritorio', errors, [])
+await desktop.close()
 
-    // La paleta esta escrita en `oklch`, y `getComputedStyle` la devuelve tal
-    // cual, sin convertir. Pintar el color en un canvas de un pixel y leer ese
-    // pixel delega la conversion a sRGB en el propio navegador, que es quien
-    // sabe hacerla bien; parsear el `oklch()` a mano seria reimplementar la
-    // conversion y equivocarse en ella.
+// ===========================================================================
+// Contraste
+// ===========================================================================
+// El gris "parece" bien hasta que se mide. Se mide en el navegador, con los
+// colores ya resueltos —varios salen de `color-mix`—, pintando cada uno en un
+// canvas de un pixel: la alternativa era reimplementar la conversion a sRGB a
+// mano y equivocarse en ella.
+const TEXT_ON_SURFACES = ['--text-primary', '--text-secondary', '--text-muted'].flatMap((text) =>
+  ['--surface-card', '--surface-panel', '--surface-sunken', '--surface-hover', '--surface-overlay'].map((surface) => [text, surface]),
+)
+const PAIRS = [
+  ...TEXT_ON_SURFACES,
+  ['--accent-contrast', '--accent'],
+  ['--accent-text', '--surface-card'],
+  ['--accent-text', '--accent-soft'],
+  ['--severity-critical', '--severity-critical-bg'],
+  ['--severity-high', '--severity-high-bg'],
+  ['--severity-medium', '--severity-medium-bg'],
+  ['--severity-low', '--severity-low-bg'],
+  ['--status-open', '--surface-card'],
+  ['--status-investigating', '--surface-card'],
+  ['--status-contained', '--surface-card'],
+  ['--status-resolved', '--surface-card'],
+  ['--status-resolved', '--surface-sunken'],
+  ['--severity-critical', '--surface-card'],
+  ['--severity-high', '--surface-card'],
+]
+
+async function contrastReport(theme, accent) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const probe = await context.newPage()
+  await probe.addInitScript(([theme, accent]) => {
+    localStorage.setItem('centinela:settings', JSON.stringify({ theme, accent }))
+  }, [theme, accent])
+  await open(probe, '/')
+
+  const report = await probe.evaluate((pairs) => {
     const canvas = document.createElement('canvas')
     canvas.width = 1
     canvas.height = 1
-    const surface = canvas.getContext('2d')
+    const surface = canvas.getContext('2d', { willReadFrequently: true })
+    const sample = document.createElement('span')
+    document.body.append(sample)
 
-    const resolve = (token) => {
-      probe.style.color = `var(${token})`
+    const rgb = (token) => {
+      sample.style.color = `var(${token})`
       surface.clearRect(0, 0, 1, 1)
-      surface.fillStyle = getComputedStyle(probe).color
+      surface.fillStyle = getComputedStyle(sample).color
       surface.fillRect(0, 0, 1, 1)
       const [r, g, b] = surface.getImageData(0, 0, 1, 1).data
       return [r, g, b]
     }
-
-    const channel = (v) => {
-      const c = v / 255
-      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-    }
     const luminance = ([r, g, b]) =>
-      0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
-    const ratio = (a, b) => {
-      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
-      return (hi + 0.05) / (lo + 0.05)
-    }
+      [r, g, b]
+        .map((value) => value / 255)
+        .map((value) => (value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4))
+        .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0)
 
-    const pairs = [
-      ['--text-muted', '--surface-sunken'],
-      ['--text-muted', '--surface-base'],
-      ['--text-muted', '--surface-raised'],
-      ['--text-secondary', '--surface-raised'],
-    ]
-    const out = pairs.map(([fg, bg]) => ({
-      pair: `${fg} / ${bg}`,
-      ratio: Number(ratio(resolve(fg), resolve(bg)).toFixed(2)),
-    }))
-    probe.remove()
-    return out
-  })
+    return pairs.map(([foreground, background]) => {
+      const [hi, lo] = [luminance(rgb(foreground)), luminance(rgb(background))].sort((a, b) => b - a)
+      return { pair: `${foreground} sobre ${background}`, ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100 }
+    })
+  }, PAIRS)
 
-  await ctx.close()
+  await context.close()
   return report
 }
 
-for (const theme of ['dark', 'light']) {
-  const report = await contrastReport(theme)
-  const worst = report.reduce((a, b) => (a.ratio < b.ratio ? a : b))
-  check(`contraste AA en tema ${theme} (peor: ${worst.pair} = ${worst.ratio})`, worst.ratio >= 4.5, true)
+for (const theme of ['light', 'dark']) {
+  for (const accent of ['forest', 'ocean', 'plum', 'ember']) {
+    const report = await contrastReport(theme, accent)
+    const failing = report.filter((entry) => entry.ratio < 4.5)
+    const worst = report.reduce((a, b) => (a.ratio <= b.ratio ? a : b))
+    check(`contraste AA · ${theme} / ${accent} (peor: ${worst.pair} = ${worst.ratio})`, failing.map((entry) => `${entry.pair} = ${entry.ratio}`), [])
+  }
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Movimiento reducido
-// ---------------------------------------------------------------------------
-// Con `prefers-reduced-motion` el contador no debe recorrer la distancia: tiene
-// que estar en su valor final desde el primer pintado. El CSS no puede
-// arreglarlo solo, porque el numero lo interpola JavaScript.
-const still = await browser.newContext({
-  viewport: { width: 1280, height: 800 },
-  reducedMotion: 'reduce',
-})
-const stillPage = await still.newPage()
-await stillPage.goto(BASE, { waitUntil: 'networkidle' })
-// Deliberadamente corto: menos de lo que duraria la animacion del contador.
-await stillPage.waitForTimeout(150)
-const stillValue = await stillPage
-  .locator('main article')
-  .filter({ hasText: 'Críticos sin resolver' })
-  .locator('p')
-  .first()
-  .innerText()
-check('sin movimiento, el contador ya esta en su valor', /^\d+$/.test(stillValue), true)
-check('sin movimiento, los bloques son visibles', await stillPage.evaluate(() => {
-  const card = document.querySelector('main article')
-  return card !== null && Number(getComputedStyle(card.parentElement).opacity) === 1
-}), true)
-await still.close()
+// ===========================================================================
+const calm = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' })
+const still = await calm.newPage()
+watch(still)
+await still.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' })
+await still.waitForSelector('main article p.tabular')
+const immediate = await still.locator('main article p.tabular').first().innerText()
+await still.waitForTimeout(1200)
+check('con movimiento reducido el contador no anima', immediate, await still.locator('main article p.tabular').first().innerText())
+check('con movimiento reducido nada queda a medio entrar', await still.evaluate(() =>
+  [...document.querySelectorAll('.rise')].every((node) => getComputedStyle(node).opacity === '1'),
+))
+await calm.close()
 
-// ---------------------------------------------------------------------------
-// Capturas del README (sólo con --shots)
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Movil
+// ===========================================================================
+const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
+const phone = await mobile.newPage()
+watch(phone)
+
+for (const path of ['/', '/incidentes', '/tablero', '/calendario', '/analitica', '/equipo', '/ajustes']) {
+  await open(phone, path)
+  check(`movil: ${path} no desborda`, await noOverflow(phone))
+}
+
+await open(phone, '/incidentes')
+check('movil: lista en vez de tabla', [await phone.locator('main table').count(), (await phone.locator('main ul li button[aria-label^="Ver detalle"]').count()) > 0], [0, true])
+await phone.getByRole('button', { name: 'Abrir la navegación', exact: true }).click()
+await phone.waitForSelector('dialog[open]')
+check('movil: el cajon trae la misma navegacion', await phone.locator('dialog[open] nav a').count(), 7)
+await phone.locator('dialog[open]').getByRole('link', { name: 'Equipo' }).click()
+await phone.waitForTimeout(400)
+check('movil: el cajon navega y se cierra', [await location(phone), await phone.locator('dialog[open]').count()], ['/equipo', 0])
+
+await open(phone, '/tablero')
+const phoneCard = phone.locator('main li[data-flip]').first()
+const phoneCardId = await phoneCard.getAttribute('data-flip')
+await phoneCard.getByRole('button', { name: `Acciones de ${phoneCardId}`, exact: true }).click()
+check('movil: el tablero se mueve con el menu, sin arrastrar', await phone.getByRole('menuitem').count(), 4)
+await phone.keyboard.press('Escape')
+check('sin errores de consola en movil', errors, [])
+
+// ===========================================================================
+// Capturas del README (solo con --shots)
+// ===========================================================================
 if (WITH_SHOTS) {
-// Se toman sobre paginas recien cargadas para que muestren el estado por
-// defecto y no el que dejaron las comprobaciones. Son capturas del viewport y
-// no de pagina completa: con `fullPage` la cabecera fija se renderiza en su
-// posicion de scroll y aparece flotando en mitad del contenido.
-// Un contexto por captura: comparten `localStorage`, y basta que una cambie el
-// tema para que la siguiente cargue con el equivocado.
-async function freshShot(name, prepare) {
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1180 }, deviceScaleFactor: 2 })
-  const p = await ctx.newPage()
-  await p.goto(BASE, { waitUntil: 'networkidle' })
-  await p.waitForTimeout(900)
-  if (prepare) await prepare(p)
-  await p.screenshot({ path: `${OUT}/${name}.png` })
-  await ctx.close()
+  const shots = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 })
+  const shot = await shots.newPage()
+  const capture = async (name) => shot.screenshot({ path: `${OUT}/${name}.png` })
+  const settings = (value) => shot.evaluate((value) => localStorage.setItem('centinela:settings', JSON.stringify(value)), value)
+
+  await open(shot, '/')
+  await capture('panel-claro')
+
+  await open(shot, '/incidentes?sev=critical,high&estado=open,investigating,contained')
+  await capture('incidentes')
+  await rows(shot).first().getByRole('button').click()
+  await shot.waitForTimeout(700)
+  await capture('detalle')
+  await shot.keyboard.press('Escape')
+
+  await open(shot, '/tablero')
+  await capture('tablero')
+
+  await open(shot, '/calendario')
+  await capture('calendario')
+
+  await open(shot, '/analitica')
+  await capture('analitica')
+
+  await open(shot, '/equipo')
+  await capture('equipo')
+
+  await open(shot, '/')
+  await shot.keyboard.press('Control+k')
+  await shot.keyboard.type('ransom')
+  await shot.waitForTimeout(600)
+  await capture('paleta')
+  await shot.keyboard.press('Escape')
+
+  await settings({ theme: 'dark' })
+  await open(shot, '/')
+  await capture('panel-oscuro')
+
+  await settings({ theme: 'light', accent: 'ocean' })
+  await open(shot, '/analitica')
+  await capture('acento-oceano')
+  await shots.close()
+
+  await open(phone, '/')
+  await phone.screenshot({ path: `${OUT}/movil.png` })
+  await open(phone, '/tablero')
+  await phone.screenshot({ path: `${OUT}/movil-tablero.png` })
 }
 
-await freshShot('dashboard-oscuro')
-
-await freshShot('dashboard-claro', async (p) => {
-  await p.getByRole('button', { name: 'Cambiar a tema claro' }).click()
-  await p.waitForTimeout(700)
-})
-
-// Un incidente ya cerrado: es el que tiene la bitacora completa y el campo
-// "Cerrado", asi la captura muestra el panel con todo su contenido.
-await freshShot('panel-detalle', async (p) => {
-  await p
-    .locator('tbody tr')
-    .filter({ hasText: 'Resuelto' })
-    .first()
-    .locator('button[aria-label^="Ver detalle"]')
-    .click()
-  await p.waitForTimeout(700)
-})
-
-await freshShot('estado-vacio', async (p) => {
-  await p.getByRole('searchbox', { name: 'Buscar incidentes' }).fill('ransomware crítico')
-  await p.waitForTimeout(400)
-  await p.getByRole('searchbox', { name: 'Buscar incidentes' }).fill('zzzznoexiste')
-  await p.waitForTimeout(400)
-})
-
-  // La tarjeta de indicador como filtro: la cifra de arriba y el recuento de
-  // la tabla tienen que verse iguales en la misma captura.
-  await freshShot('filtro-desde-indicador', async (p) => {
-    await p.getByRole('button', { name: /críticos sin resolver/ }).click()
-    await p.waitForTimeout(700)
-  })
-
-  await freshShot('filtro-desde-grafico', async (p) => {
-    const bar = p.locator('.recharts-surface').nth(1).locator('.recharts-bar-rectangle').nth(2)
-    await bar.click({ force: true })
-    await p.waitForTimeout(700)
-  })
-
-  const shotsMobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3 })
-  const mob = await shotsMobile.newPage()
-  await mob.goto(BASE, { waitUntil: 'networkidle' })
-  await mob.waitForTimeout(900)
-  await mob.screenshot({ path: `${OUT}/movil.png` })
-  await mob.locator('main ul li button[aria-label^="Ver detalle"]').first().click()
-  await mob.waitForTimeout(700)
-  await mob.screenshot({ path: `${OUT}/movil-detalle.png` })
-  await shotsMobile.close()
-}
-
+await mobile.close()
 await browser.close()
+
 console.log(results.join('\n'))
-const failed = results.filter((r) => r.startsWith('FAIL')).length
+const failed = results.filter((result) => result.startsWith('FAIL')).length
 console.log(`\n${results.length - failed}/${results.length} comprobaciones OK`)
 process.exit(failed > 0 ? 1 : 0)
