@@ -63,7 +63,7 @@ Queda en `http://localhost:5173`.
 | `npm run preview` | Sirve el build de producción |
 | `npm run typecheck` | Sólo TypeScript |
 | `npm run lint` | oxlint |
-| `npm run verify` | 123 comprobaciones de UI sobre un navegador real |
+| `npm run verify` | 126 comprobaciones de UI sobre un navegador real |
 
 `npm run verify` necesita el servidor de desarrollo levantado y el navegador de
 Playwright instalado:

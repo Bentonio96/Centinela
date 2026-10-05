@@ -404,6 +404,33 @@ check('sin errores de consola en escritorio', errors, [])
 await desktop.close()
 
 // ===========================================================================
+// Visitante de la version anterior
+// ===========================================================================
+// La version de una sola pantalla guardaba `centinela:theme = 'dark'` en cada
+// visita, sin que nadie lo eligiera: era su valor por defecto. Quien vuelva
+// con esa clave tiene que ver el tema por defecto de hoy, no el de entonces.
+// Migrarla como si fuera una preferencia le abria la consola en oscuro a todo
+// el que hubiera entrado alguna vez.
+const returning = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+const visitor = await returning.newPage()
+watch(visitor)
+// Solo en el primer documento: el guion se ejecuta en cada navegacion, y
+// volver a sembrar la clave tras recargar probaria otra cosa.
+await visitor.addInitScript(() => {
+  if (sessionStorage.getItem('sembrado') !== null) return
+  sessionStorage.setItem('sembrado', '1')
+  localStorage.setItem('centinela:theme', 'dark')
+})
+await open(visitor, '/')
+check('la clave de tema antigua no impone el oscuro', await visitor.evaluate(() => document.documentElement.classList.contains('dark')), false)
+check('la clave de tema antigua se borra', await visitor.evaluate(() => localStorage.getItem('centinela:theme')), null)
+await visitor.getByRole('button', { name: 'Cambiar a tema oscuro', exact: true }).click()
+await visitor.reload({ waitUntil: 'networkidle' })
+await visitor.waitForSelector('h1')
+check('elegir el oscuro de verdad si se recuerda', await visitor.evaluate(() => document.documentElement.classList.contains('dark')), true)
+await returning.close()
+
+// ===========================================================================
 // Contraste
 // ===========================================================================
 // El gris "parece" bien hasta que se mide. Se mide en el navegador, con los

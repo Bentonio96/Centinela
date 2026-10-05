@@ -36,7 +36,17 @@ export interface Settings {
 }
 
 export const SETTINGS_STORAGE_KEY = 'centinela:settings';
-/** Clave de la versión anterior, que sólo guardaba el tema. */
+
+/**
+ * Clave de la versión anterior, que sólo guardaba el tema.
+ *
+ * **No se migra, se borra.** Aquella versión escribía su tema en cada visita,
+ * lo hubiera elegido alguien o no, y su valor por defecto era el oscuro. Así
+ * que un `'dark'` ahí no dice "esta persona prefiere el oscuro": dice "esta
+ * persona entró alguna vez". Leerlo como preferencia le abría la consola en
+ * oscuro a todo el que hubiera visitado la versión vieja. Y un `'light'`, que
+ * sí habría sido una elección, coincide con el valor por defecto de hoy.
+ */
 const LEGACY_THEME_KEY = 'centinela:theme';
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -58,12 +68,10 @@ function readStored(): Settings {
     const stored: Record<string, unknown> =
       typeof raw === 'object' && raw !== null ? { ...raw } : {};
 
+    localStorage.removeItem(LEGACY_THEME_KEY);
+
     return {
-      theme: oneOf(
-        THEMES,
-        stored['theme'] ?? localStorage.getItem(LEGACY_THEME_KEY),
-        DEFAULT_SETTINGS.theme,
-      ),
+      theme: oneOf(THEMES, stored['theme'], DEFAULT_SETTINGS.theme),
       accent: oneOf(ACCENTS, stored['accent'], DEFAULT_SETTINGS.accent),
       weekStart: oneOf(WEEK_STARTS, stored['weekStart'], DEFAULT_SETTINGS.weekStart),
       me:

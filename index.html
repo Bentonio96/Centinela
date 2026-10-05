@@ -24,12 +24,15 @@
       Aplica tema y acento guardados antes del primer pintado. El tema claro con
       acento bosque ya es el valor por defecto del CSS, así que esto sólo
       corrige a quien eligió otra cosa; sin esto vería un destello en cada carga.
+
+      La clave antigua `centinela:theme` se ignora a propósito: la versión
+      anterior la escribía en cada visita con su valor por defecto, así que no
+      refleja una elección. Ver `src/data/settings.ts`.
     -->
     <script>
       try {
         var saved = JSON.parse(localStorage.getItem('centinela:settings') || '{}');
-        var theme = saved.theme || localStorage.getItem('centinela:theme');
-        if (theme === 'dark') document.documentElement.classList.add('dark');
+        if (saved.theme === 'dark') document.documentElement.classList.add('dark');
         if (typeof saved.accent === 'string' && saved.accent !== 'forest') {
           document.documentElement.dataset.accent = saved.accent;
         }
